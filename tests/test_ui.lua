@@ -40,6 +40,8 @@ local imgui = {
   idDepth = 0, colDepth = 0, widthDepth = 0, varDepth = 0,
   buttons = {}, sliders = {}, checkboxes = {},
   bgAlpha = nil, windowBg = nil,
+  highlights = {}, hovered = {}, held = {},
+  textColours = {}, drawColours = {},
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
 }
@@ -114,6 +116,10 @@ function ImGui.PushStyleColor(_, idx, col)
           :format(col))
   end
   if idx == ImGui.Col_WindowBg then imgui.windowBg = col end
+  if idx == ImGui.Col_Button        then imgui.highlights[col] = true end
+  if idx == ImGui.Col_ButtonHovered then imgui.hovered[col] = true end
+  if idx == ImGui.Col_ButtonActive  then imgui.held[col] = true end
+  if idx == ImGui.Col_Text          then imgui.textColours[col] = true end
   imgui.colDepth = imgui.colDepth + 1
 end
 function ImGui.PopStyleColor(_, n)
@@ -154,6 +160,7 @@ function ImGui.DrawList_AddRectFilled(_, x1, y1, x2, y2, col)
   imgui.drawCalls = imgui.drawCalls + 1
   if type(col) ~= "number" then error("rect colour is a " .. type(col)) end
   if x2 < x1 or y2 < y1 then error("rect is inside out") end
+  imgui.drawColours[col] = true
 end
 function ImGui.DrawList_AddLine(_, _, _, _, _, col)
   imgui.drawCalls = imgui.drawCalls + 1
@@ -257,6 +264,8 @@ local function frame(clickNth)
   imgui.clickTarget, imgui.clicked = clickNth, nil
   imgui.idDepth, imgui.colDepth, imgui.widthDepth, imgui.varDepth = 0, 0, 0, 0
   imgui.bgAlpha, imgui.windowBg = nil, nil
+  imgui.highlights, imgui.textColours, imgui.drawColours = {}, {}, {}
+  imgui.hovered, imgui.held = {}, {}
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
@@ -282,6 +291,57 @@ eq(imgui.bgAlpha, 1.0, "the window background is fully opaque, not transparent")
 ok(imgui.windowBg ~= nil, "and it sets a window background colour")
 eq(imgui.windowBg and (imgui.windowBg % 256), 255,
    "which is itself fully opaque")
+
+-- The window is coloured in bands, one per section, so a user who has lost
+-- their place can find it by colour. A single frame has something chosen in
+-- every band, so every band's colour has to appear in it.
+do
+  local ACCENTS = { 0xFF7E7EFF, 0xFFA259FF, 0xFFCB56FF, 0xFFEDB9FF }
+  local NAMES   = { "key", "scale degree", "building block", "the panel below" }
+  for i, col in ipairs(ACCENTS) do
+    checks = checks + 1
+    if not imgui.highlights[col] then
+      failures = failures + 1
+      io.write(("FAIL  nothing on screen is highlighted in the %s colour (%08X)\n")
+               :format(NAMES[i], col))
+    end
+  end
+
+  local function count(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+  end
+  eq(count(imgui.highlights), #ACCENTS, "and no other colour highlights anything")
+
+  -- Hovered and held are shaded from the accent rather than picked by hand, so
+  -- there is one of each per section and none of them is the accent itself.
+  eq(count(imgui.hovered), #ACCENTS, "one hover shade per section")
+  eq(count(imgui.held), #ACCENTS, "one held shade per section")
+  for _, col in ipairs(ACCENTS) do
+    ok(not imgui.hovered[col], ("the hover shade of %08X is not %08X"):format(col, col))
+    ok(not imgui.held[col], ("nor is the held shade"):format(col))
+  end
+  for col in pairs(imgui.hovered) do
+    checks = checks + 1
+    if col % 256 ~= 255 then
+      failures = failures + 1
+      io.write(("FAIL  shading lost the alpha: %08X\n"):format(col))
+    end
+  end
+
+  ok(imgui.drawColours[0xFFFFFFFF], "the MIDI notes are drawn white")
+  ok(not imgui.highlights[0xFFFFFFFF], "which is not a highlight colour")
+
+  -- A pale accent needs dark text on it, or a chosen button cannot be read.
+  local darkest
+  for col in pairs(imgui.textColours) do
+    local r = math.floor(col / 16777216) % 256
+    if not darkest or r < darkest then darkest = r end
+  end
+  ok(darkest and darkest < 64,
+     "a chosen button takes dark text, since every accent is pale")
+end
 
 -- The category buttons are the way in to each panel, so find and click them.
 local function clickLabel(label)

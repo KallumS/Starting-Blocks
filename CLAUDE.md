@@ -159,13 +159,35 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 
 ## Colour
 
-One accent, orange, for whatever is chosen; a steel grey window behind it. A
-chosen button also takes dark text, because white on orange is a poor read -
-`pick()` pushes four colours and pops four.
+**The window is coloured in bands, one per section**, warming down the screen:
+the key `#FF7E7E`, the scale degree `#FFA259`, which block `#FFCB56`, and
+everything that block offers `#FFEDB9`. A user who has lost their place can
+find it by colour rather than by reading, which is the whole reason there are
+four and not one.
 
-The piano roll sits on a background darker than the window so it reads as
-inset, and `WARN` is red rather than the orange it used to be, so a warning is
-not mistaken for a selection.
+`section(col)` sets which is current and `pick()` and `heading()` read it, so a
+helper never takes a colour it would only pass on. Set it at the top of a
+section, not per control. A new section means a new constant and one
+`section()` call.
+
+Hovered and held are `shade()`d from the accent rather than picked by hand, so
+a section needs one colour and not three. `shade` uses arithmetic rather than
+bit operators, like the MIDI writer, so it does not care which Lua a REAPER
+build carries - and it must keep the alpha byte, or ReaImGui is handed a fully
+transparent colour.
+
+Every accent is pale, so **a chosen button takes dark text**: white on any of
+them is unreadable. `pick()` pushes four colours and pops four.
+
+The MIDI notes are white, because they are the content rather than a control,
+and nothing that highlights is white. The playhead is blue, the one hue no
+accent is. `WARN` is a deeper red than the key accent so a warning is not
+mistaken for a selection.
+
+`tests/test_ui.lua` asserts all of this: that every band's colour appears in a
+frame, that nothing else highlights, that there is one hover and one held shade
+per section and neither is the accent, that shading keeps the alpha, that the
+notes are white, and that chosen text is dark.
 
 ## Tests
 

@@ -46,19 +46,43 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
-local WINDOW_BG   = 0x39414AFF   -- steel grey
-local ACCENT      = 0xE08A2EFF   -- orange, for whatever is chosen
-local ACCENT_HOV  = 0xF09B40FF
-local ACCENT_ACT  = 0xC4741EFF
--- White on orange is a poor read, so a chosen button takes dark text instead.
+local WINDOW_BG   = 0x26282BFF   -- dark grey
+
+-- One colour per section of the window, warming as you go down it: the key at
+-- the top, then the degree, then which block, then everything that block
+-- offers. A user who has lost their place can find it by colour rather than by
+-- reading, which is the whole reason there are four of these and not one.
+local ACC_KEY     = 0xFF7E7EFF
+local ACC_DEGREE  = 0xFFA259FF
+local ACC_BLOCK   = 0xFFCB56FF
+local ACC_PANEL   = 0xFFEDB9FF
+
+-- Every accent is pale, so a chosen button takes dark text. White on any of
+-- them is unreadable.
 local ACCENT_TEXT = 0x1E2226FF
-local NOTE_COL    = 0x6FD49AFF
-local ROLL_BG     = 0x262C33FF   -- inset, darker than the window behind it
-local ROLL_BAR    = 0x4E5761FF
-local ROLL_BEAT   = 0x333A42FF
-local PLAYHEAD    = 0xFFD966FF
-local DIM         = 0xB0B9C4FF   -- light enough to read on steel
-local WARN        = 0xE8705AFF   -- red, so it is not mistaken for the accent
+
+local NOTE_COL    = 0xFFFFFFFF   -- the notes are the content, not a control
+local ROLL_BG     = 0x171A1CFF   -- inset, darker than the window behind it
+local ROLL_BAR    = 0x454A50FF
+local ROLL_BEAT   = 0x2C3034FF
+local PLAYHEAD    = 0x6FD0FFFF   -- blue, the one thing no accent is
+local DIM         = 0xA8AEB6FF
+local WARN        = 0xE0473AFF   -- a deeper red than the key accent
+
+-- Shifts a colour towards white or black, so a section needs one colour rather
+-- than three. Done with arithmetic rather than bit operators, like the MIDI
+-- writer, so it does not care which Lua a given REAPER build carries.
+local function shade(col, amount)
+  local a = col % 256
+  local b = math.floor(col / 256) % 256
+  local g = math.floor(col / 65536) % 256
+  local r = math.floor(col / 16777216) % 256
+  local function mix(c)
+    if amount >= 0 then return math.floor(c + (255 - c) * amount + 0.5) end
+    return math.floor(c * (1 + amount) + 0.5)
+  end
+  return mix(r) * 16777216 + mix(g) * 65536 + mix(b) * 256 + a
+end
 
 -- ReaImGui patches Dear ImGui so a top-level window can carry its own
 -- background alpha, which a plain Dear ImGui window cannot. The same patch
@@ -130,16 +154,29 @@ end
 -- Widgets
 ------------------------------------------------------------------------------
 
+-- Which section is being drawn. Everything that highlights reads it, rather
+-- than every helper taking a colour it would only pass on.
+local accent = ACC_PANEL
+local function section(col) accent = col end
+
 local function pick(label, selected, width)
   if selected then
-    ImGui.PushStyleColor(ctx, ImGui.Col_Button, ACCENT)
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, ACCENT_HOV)
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, ACCENT_ACT)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button, accent)
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(accent, 0.18))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(accent, -0.18))
     ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
   end
   local hit = ImGui.Button(ctx, label, width or 0, 0)
   if selected then ImGui.PopStyleColor(ctx, 4) end
   return hit
+end
+
+-- A section's title carries its colour too, so the grouping reads before any
+-- of it is clicked.
+local function heading(text)
+  ImGui.PushStyleColor(ctx, ImGui.Col_Text, accent)
+  ImGui.SeparatorText(ctx, text)
+  ImGui.PopStyleColor(ctx, 1)
 end
 
 local function tip(text)
@@ -476,7 +513,8 @@ end
 ------------------------------------------------------------------------------
 
 local function drawKey()
-  ImGui.SeparatorText(ctx, "Key")
+  section(ACC_KEY)
+  heading("Key")
   local r = chooser("root", E.ROOTS, st.root, 0, 44, function(x) return x.name end)
   if r then st.root = r; touched() end
 
@@ -489,7 +527,8 @@ local function drawKey()
 end
 
 local function drawDegree()
-  ImGui.SeparatorText(ctx, "Scale degree")
+  section(ACC_DEGREE)
+  heading("Scale degree")
   for d = 0, E.scaleLen(st) - 1 do
     if d > 0 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "deg" .. d)
@@ -506,7 +545,8 @@ end
 
 local function drawActions()
   local block = ui.block
-  ImGui.SeparatorText(ctx, block and block.name or "")
+  section(ACC_PANEL)
+  heading(block and block.name or "")
 
   local w = select(1, ImGui.GetContentRegionAvail(ctx))
   pianoRoll(block, math.max(120, w), 92,
@@ -565,7 +605,8 @@ local function frame()
   drawKey()
   drawDegree()
 
-  ImGui.SeparatorText(ctx, "Building block")
+  section(ACC_BLOCK)
+  heading("Building block")
   for i, name in ipairs(E.CATEGORIES) do
     if i > 1 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "cat" .. i)
@@ -574,6 +615,7 @@ local function frame()
   end
 
   ImGui.Dummy(ctx, 0, 4)
+  section(ACC_PANEL)
   ;(panels[st.cat] or panels.Chord)()
 
   ImGui.Dummy(ctx, 0, 6)
