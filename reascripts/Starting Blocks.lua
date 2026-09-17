@@ -90,9 +90,9 @@ end
 
 local SAVED = { "root", "scale", "degree", "cat", "family", "dia", "chord",
                 "inv", "oct", "pattern", "runDir", "rate", "rateMod",
-                "octaves", "repeats", "bars", "vel", "gate", "interval",
-                "melDir", "shape", "bassTone", "bassOct", "drumPiece",
-                "drumPattern", "baseOct" }
+                "octaves", "repeats", "bars", "gate", "chop", "shuffle",
+                "interval", "melDir", "shape", "bassTone", "bassOct",
+                "drumPiece", "drumRate", "baseOct" }
 
 local function saveState()
   local out = {}
@@ -220,15 +220,25 @@ end
 -- Shared controls
 ------------------------------------------------------------------------------
 
+-- Straight, triplet or dotted. One setting shown on every panel, because a
+-- block is in one feel or the other and the choice is the same question
+-- wherever it is asked.
+local function modRow()
+  local m = chooser("ratemod", E.RATE_MODS, st.rateMod, 0, 72,
+                    function(x) return x.name end,
+                    function(x, i) return ({
+                      "Notes fall where the grid says",
+                      "Three in the space of two",
+                      "Half as long again" })[i] end)
+  if m then st.rateMod = m; touched() end
+end
+
 local function rateRow()
   dim("Rate")
-  local r = chooser("rate", E.RATES, st.rate, 0, 54,
-                    function(x) return x.name end)
+  local r = chooser("rate", E.RATES, st.rate, 0, 54, function(x) return x.name end)
   if r then st.rate = r; touched() end
   ImGui.SameLine(ctx, 0, 16)
-  local m = chooser("ratemod", E.RATE_MODS, st.rateMod, 0, 72,
-                    function(x) return x.name end)
-  if m then st.rateMod = m; touched() end
+  modRow()
 end
 
 local function barsRow()
@@ -254,20 +264,20 @@ local function repeatsRow()
 end
 
 local function commonTail(withOctaves, withOctave, withBars, withGate)
+  local first = true
+  local function gap() if not first then ImGui.SameLine(ctx, 0, 14) end; first = false end
   if withOctaves then
+    gap()
     local c, v = slider("octaves", "Octaves", st.octaves, 1, 4, 110)
     if c then st.octaves = v; touched() end
-    ImGui.SameLine(ctx, 0, 14)
   end
   if withOctave then
+    gap()
     local c, v = slider("oct", "Octave", st.oct, -3, 3, 110)
     if c then st.oct = v; touched() end
-    ImGui.SameLine(ctx, 0, 14)
   end
-  local c, v = slider("vel", "Velocity", st.vel, 1, 127, 130)
-  if c then st.vel = v; touched() end
   if withGate then
-    ImGui.SameLine(ctx, 0, 14)
+    gap()
     local g, gv = slider("gate", "Gate %", st.gate, 5, 100, 130)
     if g then st.gate = gv; touched() end
   end
@@ -317,7 +327,14 @@ panels.Chord = function()
   dim("Inversion")
   local v = chooser("inv", E.INVERSIONS, st.inv + 1, 0, 58)
   if v then st.inv = v - 1; touched() end
+
+  dim("Chop")
+  local ch = chooser("chop", E.RATES, st.chop, 0, 54, function(x) return x.name end,
+                     function(x) return "Strike the chord again every " .. x.name ..
+                       " through the block" end)
+  if ch then st.chop = ch; touched() end
   ImGui.SameLine(ctx, 0, 16)
+  modRow()
 
   commonTail(false, true, true, true)
 end
@@ -385,7 +402,7 @@ panels.Bass = function()
 end
 
 panels.Drums = function()
-  dim("One piece of the kit, one pattern, one bar. Stack a kit up by dropping in several.")
+  dim("One piece of the kit, hit at one rate. Stack a kit up by dropping in several.")
 
   dim("Piece")
   local p = chooser("drp", E.DRUM_PIECES, st.drumPiece, 0, 92,
@@ -393,12 +410,31 @@ panels.Drums = function()
                     function(x) return "General MIDI note " .. x.note end)
   if p then st.drumPiece = p; touched() end
 
-  dim("Pattern")
-  local q = chooser("drs", E.DRUM_PATTERNS, st.drumPattern, 0, 118,
-                    function(x) return x.name end,
-                    function() return "Written on a 4/4 grid; hits past the end " ..
-                      "of a shorter bar are dropped" end)
-  if q then st.drumPattern = q; touched() end
+  local piece = E.DRUM_PIECES[st.drumPiece]
+  if #piece.rates == 0 then
+    -- Nothing to choose yet, and a control that does nothing is worse than no
+    -- control, so say so instead of showing one.
+    dim(("A single hit at the top of the bar. %s is still to be thought through.")
+        :format(piece.name))
+  else
+    dim(piece.start > 0
+        and ("Every  -  starting on beat %d"):format(piece.start + 1)
+        or  "Every  -  starting at the top of the bar")
+    for i, name in ipairs(piece.rates) do
+      if i > 1 then ImGui.SameLine(ctx) end
+      ImGui.PushID(ctx, "drate" .. i)
+      if pick(name, st.drumRate == name, 54) then st.drumRate = name; touched() end
+      ImGui.PopID(ctx)
+    end
+    ImGui.SameLine(ctx, 0, 16)
+    modRow()
+
+    dim("Shuffle")
+    local c, v = slider("shuffle", "Shuffle %", st.shuffle, 0, 100, 150)
+    if c then st.shuffle = v; touched() end
+    tip("Pushes every second hit later. At 100 it lands two thirds of the way " ..
+        "through the pair, which is the triplet feel a shuffle is named after.")
+  end
 
   commonTail(false, false, true, false)
 end

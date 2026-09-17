@@ -128,6 +128,11 @@ end
 w("Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three")
 w("octaves either way.")
 w()
+w("**Chop** cuts the block into segments and strikes the chord again in each")
+w("one: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2 or 1/1. At 1/1 over one bar that is a")
+w("single held chord, which is what a chord was before the chop existed. Over")
+w("more than one bar it is one strike a bar.")
+w()
 
 w("### Arpeggios")
 w()
@@ -190,24 +195,33 @@ w()
 
 w("### Drums")
 w()
-w("One piece of the kit, one pattern, one bar. Stack a kit up by dropping in")
+w("One piece of the kit, hit at one rate. Stack a kit up by dropping in")
 w("several. The note numbers are General MIDI, so the blocks land on the right")
 w("pads in anything that follows the map.")
 w()
-w("| piece | note |")
-w("| --- | --- |")
-for _, p in ipairs(E.DRUM_PIECES) do w(("| %s | %d |"):format(p.name, p.note)) end
+w("There are no named patterns. The patterns fall out of the rates instead: a")
+w("kick every 1/4 is four on the floor, a kick every 1/2 is one and three, and")
+w("a snare - which starts on the two - every 1/2 is the backbeat. Naming those")
+w("would be naming what the rates already say.")
 w()
-w("| pattern | where the hits fall, in beats from the start of the bar |")
-w("| --- | --- |")
-for _, p in ipairs(E.DRUM_PATTERNS) do
-  w(("| %s | %s |"):format(p.name, join(p.hits, ", ")))
+w("| piece | note | first hit | every |")
+w("| --- | --- | --- | --- |")
+for _, p in ipairs(E.DRUM_PIECES) do
+  local every = #p.rates > 0 and table.concat(p.rates, ", ") or "one hit only"
+  local first = p.start > 0 and ("beat " .. (p.start + 1)) or "top of the bar"
+  w(("| %s | %d | %s | %s |"):format(p.name, p.note, first, every))
 end
 w()
-w("These are written on a 4/4 grid. In a shorter bar the hits past the end of")
-w("it are dropped rather than squeezed in.")
+w("1/1 is always the last rate a piece offers, and it means a single hit. The")
+w("toms are a single hit and nothing to choose until they are thought through.")
+w("A bar too short to reach a piece's first hit gets no hit at all.")
 w()
-
+w("**Shuffle** pushes every second hit later, from 0 to 100. At 100 it lands")
+w("two thirds of the way through the pair, which is the triplet feel a shuffle")
+w("is named after; anything less is on the way there. A piece that is only hit")
+w("once has no second hit to push. Shuffle is measured against whatever the")
+w("step turned out to be, so it composes with a triplet rather than fighting it.")
+w()
 w("## Timing")
 w()
 local names, beats = {}, {}
@@ -220,8 +234,15 @@ w("| quarter notes | " .. join(beats, " | ") .. " |")
 w()
 local mods = {}
 for i, m in ipairs(E.RATE_MODS) do mods[i] = m.name:lower() end
-w("Each one can be " .. table.concat(mods, ", ") ..
-  " - a triplet is two thirds of the straight value, a dotted note one and a half.")
+w("Every block can be " .. table.concat(mods, ", ") ..
+  " - a triplet is two thirds of the straight value, a dotted note one and a")
+w("half - and straight is where it starts. It is one setting shown on every")
+w("panel, because a block is in one feel or the other and it is the same")
+w("question wherever it is asked. It applies to whatever that panel reads as a")
+w("rate: the chord's chop, the spacing of a drum, and the step an arpeggio, run,")
+w("melody or bass line walks in. A block that is not straight says so in its")
+w("name, `T` for a triplet and `.` for a dotted one, so two feels of the same")
+w("rate are not two files fighting over one filename.")
 w()
 w("**Gate** is how much of the step the note actually holds, from 5% to 100%.")
 w()
@@ -229,5 +250,9 @@ w("Chords, bass and drums are measured in **bars** - 1, 2, 4 or 8, and a bar is"
 w("however long the project's time signature says it is. Arpeggios and runs are")
 w("measured in **repeats** instead, and a melody is however long its own notes")
 w("make it.")
+w()
+w("Everything leaves at velocity " .. E.VELOCITY .. ". Shaping a block's")
+w("dynamics is a job for the MIDI editor once it is in the project, not for a")
+w("slider on every panel here.")
 
 io.write(table.concat(out, "\n") .. "\n")

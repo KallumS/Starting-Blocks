@@ -202,6 +202,11 @@ they fit the key. Semitones are from the chord's root.
 Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three
 octaves either way.
 
+**Chop** cuts the block into segments and strikes the chord again in each
+one: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2 or 1/1. At 1/1 over one bar that is a
+single held chord, which is what a chord was before the chop existed. Over
+more than one bar it is one strike a bar.
+
 ### Arpeggios
 
 The chord from the Chord tab, one note at a time.
@@ -260,36 +265,36 @@ Up to three octaves down, repeating at the chosen rate.
 
 ### Drums
 
-One piece of the kit, one pattern, one bar. Stack a kit up by dropping in
+One piece of the kit, hit at one rate. Stack a kit up by dropping in
 several. The note numbers are General MIDI, so the blocks land on the right
 pads in anything that follows the map.
 
-| piece | note |
-| --- | --- |
-| Kick | 36 |
-| Snare | 38 |
-| Closed HH | 42 |
-| Open HH | 46 |
-| Crash | 49 |
-| Ride | 51 |
-| Low Tom | 41 |
-| Mid Tom | 47 |
-| High Tom | 50 |
+There are no named patterns. The patterns fall out of the rates instead: a
+kick every 1/4 is four on the floor, a kick every 1/2 is one and three, and
+a snare - which starts on the two - every 1/2 is the backbeat. Naming those
+would be naming what the rates already say.
 
-| pattern | where the hits fall, in beats from the start of the bar |
-| --- | --- |
-| One Hit | 0 |
-| Four on the Floor | 0, 1, 2, 3 |
-| One & Three | 0, 2 |
-| Two & Four | 1, 3 |
-| And of Two | 1.5 |
-| Two Step | 0, 1.5, 3 |
-| Off-beats | 0.5, 1.5, 2.5, 3.5 |
-| Every 8th | 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5 |
-| Every 16th | 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75 |
+| piece | note | first hit | every |
+| --- | --- | --- | --- |
+| Kick | 36 | top of the bar | 1/16, 1/8, 1/4, 1/2, 1/1 |
+| Snare | 38 | beat 2 | 1/8, 1/4, 1/2, 1/1 |
+| Closed HH | 42 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
+| Open HH | 46 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
+| Crash | 49 | top of the bar | 1/16, 1/8, 1/4, 1/2, 1/1 |
+| Ride | 51 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
+| Low Tom | 41 | top of the bar | one hit only |
+| Mid Tom | 47 | top of the bar | one hit only |
+| High Tom | 50 | top of the bar | one hit only |
 
-These are written on a 4/4 grid. In a shorter bar the hits past the end of
-it are dropped rather than squeezed in.
+1/1 is always the last rate a piece offers, and it means a single hit. The
+toms are a single hit and nothing to choose until they are thought through.
+A bar too short to reach a piece's first hit gets no hit at all.
+
+**Shuffle** pushes every second hit later, from 0 to 100. At 100 it lands
+two thirds of the way through the pair, which is the triplet feel a shuffle
+is named after; anything less is on the way there. A piece that is only hit
+once has no second hit to push. Shuffle is measured against whatever the
+step turned out to be, so it composes with a triplet rather than fighting it.
 
 ## Timing
 
@@ -297,7 +302,14 @@ it are dropped rather than squeezed in.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | quarter notes | 0.0625 | 0.125 | 0.25 | 0.5 | 1 | 2 | 4 |
 
-Each one can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a half.
+Every block can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a
+half - and straight is where it starts. It is one setting shown on every
+panel, because a block is in one feel or the other and it is the same
+question wherever it is asked. It applies to whatever that panel reads as a
+rate: the chord's chop, the spacing of a drum, and the step an arpeggio, run,
+melody or bass line walks in. A block that is not straight says so in its
+name, `T` for a triplet and `.` for a dotted one, so two feels of the same
+rate are not two files fighting over one filename.
 
 **Gate** is how much of the step the note actually holds, from 5% to 100%.
 
@@ -305,3 +317,7 @@ Chords, bass and drums are measured in **bars** - 1, 2, 4 or 8, and a bar is
 however long the project's time signature says it is. Arpeggios and runs are
 measured in **repeats** instead, and a melody is however long its own notes
 make it.
+
+Everything leaves at velocity 100. Shaping a block's
+dynamics is a job for the MIDI editor once it is in the project, not for a
+slider on every panel here.

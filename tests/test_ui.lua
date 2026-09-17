@@ -307,26 +307,54 @@ ok(clicks > 200, "and there were enough of them to mean something (" .. clicks .
 ------------------------------------------------------------------------------
 
 do
-  local names = {}
-  frame()
+  -- A panel can hide a control behind another one - the drums only offer a
+  -- shuffle for a piece that is hit more than once - so driving the sliders
+  -- with each panel in its default state misses those. Click each control in
+  -- turn and drive the sliders from there, which reaches the conditional ones
+  -- without the test needing to know which they are.
+  local names, worstSlider = {}, nil
   for _, cat in ipairs(E.CATEGORIES) do
     clickLabel(cat)
     frame()
-    for _, l in ipairs(imgui.sliders) do names[l] = true end
+    local buttons = #imgui.buttons
 
-    for _, mode in ipairs({ "max", "min", "max" }) do
-      imgui.sliderMode = mode
-      local g, err2 = frame()
-      imgui.sliderMode = nil
-      ok(g, ("%s with every slider at its %s: %s"):format(cat, mode, tostring(err2)))
-      local g2, err3 = frame()          -- and the frame that reads them back
-      ok(g2, ("%s after its sliders went to the %s: %s"):format(cat, mode, tostring(err3)))
+    for click = 0, buttons do
+      clickLabel(cat)
+      if click > 0 then frame(click) end
+      frame()
+      for _, l in ipairs(imgui.sliders) do names[l] = true end
+
+      for _, mode in ipairs({ "max", "min" }) do
+        imgui.sliderMode = mode
+        local g, err2 = frame()
+        imgui.sliderMode = nil
+        if not g then
+          worstSlider = ("%s: sliders at their %s raised: %s")
+                        :format(cat, mode, tostring(err2))
+          break
+        end
+        local g2, err3 = frame()        -- and the frame that reads them back
+        if not g2 then
+          worstSlider = ("%s: the frame after the %s raised: %s")
+                        :format(cat, mode, tostring(err3))
+          break
+        end
+      end
+      if worstSlider then break end
     end
+    if worstSlider then break end
   end
+  ok(worstSlider == nil, "every slider survives both ends: " .. tostring(worstSlider))
 
-  local n = 0
-  for _ in pairs(names) do n = n + 1 end
-  ok(n >= 6, "there are sliders to drive (" .. n .. ")")
+  local found = {}
+  for l in pairs(names) do found[#found + 1] = l end
+  table.sort(found)
+  -- Named rather than counted, so a control that stops being reachable shows
+  -- up as a missing name instead of a number that quietly went down by one.
+  eq(table.concat(found, ", "),
+     "Gate %##gate, Octave##oct, Octaves down##boct, Octaves##octaves, " ..
+     "Repeats##repeats, Shuffle %##shuffle",
+     "every slider in the window is reached")
 
   imgui.toggleBoxes = true
   local g, err2 = frame()
@@ -430,6 +458,61 @@ do
   deferred = nil
   ok(pcall(dofile, SCRIPT), "a blob that is not settings at all loads")
   ok(frame(), "and draws")
+end
+
+------------------------------------------------------------------------------
+-- The clamps and the slider ranges have to agree
+--
+-- clampState decides the widest a setting may be; a slider declares the widest
+-- it will show. ReaImGui refuses a value outside a slider's declared range, so
+-- a setting that can legally reach 100 shown by a slider declared 0..50 is a
+-- runtime error in REAPER. Loading state at both ends of every clamp and
+-- drawing every panel is what finds it.
+------------------------------------------------------------------------------
+
+do
+  local EXTREMES = {
+    { "oct=3",      "oct=-3" },
+    { "octaves=4",  "octaves=1" },
+    { "gate=100",   "gate=5" },
+    { "repeats=" .. E.MAX_REPEATS, "repeats=1" },
+    { "shuffle=100", "shuffle=0" },
+    { "bassOct=0",  "bassOct=-3" },
+    { "bars=8",     "bars=1" },
+    { "chop=" .. #E.RATES, "chop=1" },
+    { "inv=3",      "inv=0" },
+    { "baseOct=8",  "baseOct=0" },
+  }
+
+  for _, pair in ipairs(EXTREMES) do
+    for _, setting in ipairs(pair) do
+      extstate["StartingBlocks:state"] = setting
+      deferred = nil
+      local loadedIt = pcall(dofile, SCRIPT)
+      ok(loadedIt, "loads with " .. setting)
+      for _, cat in ipairs(E.CATEGORIES) do
+        local g, err2 = clickLabel(cat)
+        ok(g, ("%s with %s: %s"):format(cat, setting, tostring(err2)))
+      end
+    end
+  end
+
+  -- And all of them at once, on every drum piece, since the drums hide a
+  -- slider behind which piece is chosen.
+  extstate["StartingBlocks:state"] =
+    "oct=3;octaves=4;gate=100;repeats=" .. E.MAX_REPEATS ..
+    ";shuffle=100;bassOct=-3;bars=8;chop=1;inv=3;baseOct=8;cat=Drums"
+  deferred = nil
+  ok(pcall(dofile, SCRIPT), "loads with every setting at an extreme")
+  frame()
+  local n = #imgui.buttons
+  local worst
+  for i = 1, n do
+    local g, err2 = frame(i)
+    if not g then worst = ("button %d: %s"):format(i, tostring(err2)); break end
+    if not frame() then worst = "the frame after button " .. i; break end
+  end
+  ok(worst == nil, "every drum piece draws at those extremes: " .. tostring(worst))
 end
 
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))
