@@ -41,6 +41,7 @@ local imgui = {
   buttons = {}, sliders = {}, checkboxes = {},
   bgAlpha = nil, windowBg = nil,
   highlights = {}, hovered = {}, held = {}, buttonColourPushes = 0,
+  texts = {}, lines = {},
   textColours = {}, drawColours = {},
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
@@ -87,6 +88,7 @@ function ImGui.SeparatorText(_, s) count("SeparatorText"); imgui.lastHeading = s
 function ImGui.Text(_, s)
   count("Text")
   if type(s) ~= "string" then error("Text got a " .. type(s)) end
+  imgui.texts[#imgui.texts + 1] = s
 end
 function ImGui.Dummy() count("Dummy") end
 function ImGui.SameLine() count("SameLine") end
@@ -165,9 +167,13 @@ function ImGui.DrawList_AddRectFilled(_, x1, y1, x2, y2, col)
   if x2 < x1 or y2 < y1 then error("rect is inside out") end
   imgui.drawColours[col] = true
 end
-function ImGui.DrawList_AddLine(_, _, _, _, _, col)
+function ImGui.DrawList_AddLine(_, x1, y1, x2, y2, col)
   imgui.drawCalls = imgui.drawCalls + 1
   if type(col) ~= "number" then error("line colour is a " .. type(col)) end
+  for _, v in ipairs({ x1, y1, x2, y2 }) do
+    if type(v) ~= "number" then error("line coordinate is a " .. type(v)) end
+  end
+  imgui.lines[col] = (imgui.lines[col] or 0) + 1
 end
 function ImGui.GetContentRegionAvail() return 960, 400 end
 function ImGui.IsMouseClicked() return imgui.mouseClicked == true end
@@ -270,6 +276,7 @@ local function frame(clickNth)
   imgui.highlights, imgui.textColours, imgui.drawColours = {}, {}, {}
   imgui.hovered, imgui.held = {}, {}
   imgui.buttonColourPushes = 0
+  imgui.texts, imgui.lines = {}, {}
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
@@ -623,6 +630,39 @@ do
     if not frame() then worst = "the frame after button " .. i; break end
   end
   ok(worst == nil, "every drum piece draws at those extremes: " .. tostring(worst))
+end
+
+------------------------------------------------------------------------------
+-- The order to do things in
+--
+-- Three numbered steps with an arrow from each to the next. The arrows are
+-- drawn out of lines rather than set as a character, so what is asserted is
+-- that the lines are there - a missing arrow is silent otherwise.
+------------------------------------------------------------------------------
+
+do
+  frame()
+  local STEP = 0xD8DEE6FF
+
+  local seen = {}
+  for _, t in ipairs(imgui.texts) do seen[t] = true end
+  for _, n in ipairs({ "1", "2", "3" }) do
+    ok(seen[n], "step " .. n .. " is numbered on screen")
+  end
+  ok(not seen["4"], "and there is no fourth step")
+
+  -- Three arrows, three lines each: a stem and two sides to the head.
+  eq(imgui.lines[STEP], 9, "three arrows, drawn out of three lines each")
+
+  -- The arrows must not be the same colour as anything that means something
+  -- else, or they read as part of it.
+  ok(not imgui.highlights[STEP], "the arrow colour paints no button")
+  ok(not imgui.drawColours[STEP], "and fills nothing in the roll")
+
+  -- The step markers are deliberately neutral: they show the order, and the
+  -- window has enough colour in it already. STEP is pushed as a text colour
+  -- nowhere but on the numbers, so this is what holds that decision in place.
+  ok(imgui.textColours[STEP], "the step numbers are neutral, not a section colour")
 end
 
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))

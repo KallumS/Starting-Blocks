@@ -157,7 +157,32 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
   batch, then call `MIDI_Sort` once.
 - A refusal has to close the undo block it opened.
 
+## Finding your way down the window
+
+The three things done in order - **1 Key, 2 Scale degree, 3 Building block** -
+are numbered, with an arrow from each down to the next and from the third into
+the block's options. The options and the buttons under them are not a step:
+they are what you do once the three are chosen.
+
+The numbers and arrows are **neutral, not a section colour**, and the test
+holds that in place. The colour bands below were felt to have gone too far, so
+anything added for wayfinding since carries no colour of its own.
+
+An arrow is drawn out of three `DrawList_AddLine` calls - a stem and two sides
+to the head - rather than set as a character. The font a REAPER build hands
+ReaImGui is not guaranteed to have an arrow glyph in it and a missing glyph is
+a box, whereas lines always draw. `DrawList_AddTriangleFilled` may well exist,
+but it could not be confirmed and an unknown ReaImGui function is a hard error
+in REAPER, so it was not worth the risk for a shape three lines can make.
+
+The test counts the lines drawn in the step colour - nine, three arrows of
+three - so a missing arrow fails rather than going unnoticed.
+
 ## Colour
+
+Colour is currently **too loud, and due a revisit**. Do not add more of it;
+prefer shape, spacing and position. The bands below are described as they
+stand, not as they should stay.
 
 **The window is coloured in bands, one per section**, warming down the screen:
 the key `#FF7E7E`, the scale degree `#FFA259`, which block `#FFCB56`, and

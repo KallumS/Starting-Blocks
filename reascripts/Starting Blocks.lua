@@ -71,6 +71,9 @@ local ROLL_BAR    = 0x454A50FF
 local ROLL_BEAT   = 0x2C3034FF
 local PLAYHEAD    = 0x6FD0FFFF   -- blue, the one thing no accent is
 local DIM         = 0xA8AEB6FF
+-- The step numbers and the arrows between them. Neutral on purpose: they are
+-- there to show the order, and the window has enough colour in it already.
+local STEP        = 0xD8DEE6FF
 local WARN        = 0xE0473AFF   -- a deeper red than the key accent
 
 -- Shifts a colour towards white or black, so a section needs one colour rather
@@ -178,11 +181,35 @@ local function pick(label, selected, width)
 end
 
 -- A section's title carries its colour too, so the grouping reads before any
--- of it is clicked.
-local function heading(text)
+-- of it is clicked. `n` numbers the step, for the three that are done in order.
+local function heading(n, text)
+  if n then
+    ImGui.PushStyleColor(ctx, ImGui.Col_Text, STEP)
+    ImGui.Text(ctx, tostring(n))
+    ImGui.PopStyleColor(ctx, 1)
+    ImGui.SameLine(ctx, 0, 10)
+  end
   ImGui.PushStyleColor(ctx, ImGui.Col_Text, accent)
   ImGui.SeparatorText(ctx, text)
   ImGui.PopStyleColor(ctx, 1)
+end
+
+-- An arrow down the left margin, from one step to the next. Drawn out of lines
+-- rather than set as a character, because the font a REAPER build hands
+-- ReaImGui is not guaranteed to have an arrow in it, and a missing glyph is a
+-- box. Lines always draw.
+local ARROW_H = 22
+local function stepArrow()
+  local x, y = ImGui.GetCursorScreenPos(ctx)
+  ImGui.Dummy(ctx, 16, ARROW_H)
+
+  local dl   = ImGui.GetWindowDrawList(ctx)
+  local cx   = x + 5                       -- under the step number above it
+  local top  = y + 3
+  local tip  = y + ARROW_H - 4
+  ImGui.DrawList_AddLine(dl, cx, top, cx, tip, STEP, 2)
+  ImGui.DrawList_AddLine(dl, cx - 5, tip - 6, cx, tip, STEP, 2)
+  ImGui.DrawList_AddLine(dl, cx + 5, tip - 6, cx, tip, STEP, 2)
 end
 
 local function tip(text)
@@ -520,7 +547,7 @@ end
 
 local function drawKey()
   section(ACC_KEY)
-  heading("Key")
+  heading(1, "Key")
   local r = chooser("root", E.ROOTS, st.root, 0, 44, function(x) return x.name end)
   if r then st.root = r; touched() end
 
@@ -530,11 +557,12 @@ local function drawKey()
     st.degree = math.min(st.degree, E.scaleLen(st) - 1)
     touched()
   end
+  stepArrow()
 end
 
 local function drawDegree()
   section(ACC_DEGREE)
-  heading("Scale degree")
+  heading(2, "Scale degree")
   for d = 0, E.scaleLen(st) - 1 do
     if d > 0 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "deg" .. d)
@@ -547,12 +575,13 @@ local function drawDegree()
   end
   ImGui.SameLine(ctx, 0, 16)
   dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
+  stepArrow()
 end
 
 local function drawActions()
   local block = ui.block
   section(ACC_PANEL)
-  heading(block and block.name or "")
+  heading(nil, block and block.name or "")
 
   local w = select(1, ImGui.GetContentRegionAvail(ctx))
   pianoRoll(block, math.max(120, w), 92,
@@ -612,7 +641,7 @@ local function frame()
   drawDegree()
 
   section(ACC_BLOCK)
-  heading("Building block")
+  heading(3, "Building block")
   for i, name in ipairs(E.CATEGORIES) do
     if i > 1 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "cat" .. i)
@@ -620,7 +649,7 @@ local function frame()
     ImGui.PopID(ctx)
   end
 
-  ImGui.Dummy(ctx, 0, 4)
+  stepArrow()
   section(ACC_PANEL)
   ;(panels[st.cat] or panels.Chord)()
 
