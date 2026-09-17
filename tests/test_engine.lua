@@ -34,12 +34,20 @@ end
 
 local function list(t) return "{" .. table.concat(t, ", ") .. "}" end
 
+-- Compares lists of numbers within a rounding error, or lists of strings
+-- outright: the drum rates are names, the note starts are numbers.
 local function eqList(got, want, what)
   checks = checks + 1
   local same = #got == #want
   if same then
     for i = 1, #want do
-      if math.abs((got[i] or 0) - want[i]) > 1e-9 then same = false end
+      if type(want[i]) == "number" then
+        if type(got[i]) ~= "number" or math.abs(got[i] - want[i]) > 1e-9 then
+          same = false
+        end
+      elseif got[i] ~= want[i] then
+        same = false
+      end
     end
   end
   if not same then
@@ -211,6 +219,39 @@ do
   eqList(E.chordTones(st, 0, 0), {60, 64, 67, 71}, "Cmaj7")
   eqList(E.chordTones(st, 1, 0), {62, 66, 69, 73},
          "the same shape on the second degree, out of key and on purpose")
+end
+
+-- Chopping the chord strikes it again in each segment.
+do
+  local st = inKey("C", "Major")
+  st.chop = indexOf(E.RATES, "1/1", "name")
+  local whole = E.generate(st)
+  eq(#whole.notes, 3, "at 1/1 over one bar the chord is struck once")
+  eqList(starts(whole), {0, 0, 0}, "all together at the start")
+  eq(whole.notes[1].len, 4 * 0.9, "and held for the block, less the gate")
+
+  st.chop = indexOf(E.RATES, "1/4", "name")
+  local quarters = E.generate(st)
+  eq(#quarters.notes, 12, "chopped into quarters it is struck four times")
+  eqList(starts(quarters), {0,0,0, 1,1,1, 2,2,2, 3,3,3}, "one strike a beat")
+  eq(quarters.notes[1].len, 0.9, "each held for its own segment, less the gate")
+  eq(quarters.beats, 4, "the block is still one bar")
+
+  st.chop = indexOf(E.RATES, "1/8", "name")
+  eq(#E.generate(st).notes, 24, "chopped into eighths, eight strikes")
+
+  -- Two bars of 1/1 is two strikes, not one long one.
+  st.chop = indexOf(E.RATES, "1/1", "name")
+  st.bars = 2
+  eq(#E.generate(st).notes, 6, "two bars at 1/1 is one strike a bar")
+  eq(E.generate(st).beats, 8, "over two bars")
+
+  -- A segment longer than what is left of the block is cut to fit.
+  st.bars = 1
+  st.barBeats = 3
+  local threeFour = E.generate(st)
+  eq(#threeFour.notes, 3, "a 3/4 bar at 1/1 is still one strike")
+  eq(threeFour.notes[1].len, 3 * 0.9, "cut to the length of the bar")
 end
 
 ------------------------------------------------------------------------------
@@ -397,38 +438,132 @@ end
 
 ------------------------------------------------------------------------------
 -- Drums
+--
+-- There are no named patterns any more. The point of the rework is that the
+-- patterns fall out of the rates: a kick every 1/4 is four on the floor, a
+-- kick every 1/2 is one and three, a snare from beat two every 1/2 is the
+-- backbeat. These check that they really do.
 ------------------------------------------------------------------------------
 
+local function drumsFor(name, rate, overrides)
+  local st = state(overrides)
+  st.cat = "Drums"
+  st.drumPiece = indexOf(E.DRUM_PIECES, name)
+  st.drumRate = rate
+  return E.generate(st)
+end
+
 do
-  local st = state{ cat = "Drums",
-                    drumPiece = indexOf(E.DRUM_PIECES, "Kick"),
-                    drumPattern = indexOf(E.DRUM_PATTERNS, "Four on the Floor") }
-  local r = E.generate(st)
-  eqList(pitches(r), {36, 36, 36, 36}, "four kicks")
-  eqList(starts(r), {0, 1, 2, 3}, "on the floor")
+  eqList(starts(drumsFor("Kick", "1/4")), {0, 1, 2, 3},
+         "a kick every 1/4 is four on the floor")
+  eqList(starts(drumsFor("Kick", "1/2")), {0, 2},
+         "a kick every 1/2 is one and three")
+  eqList(starts(drumsFor("Kick", "1/1")), {0},
+         "a kick every 1/1 is one hit at the top of the bar")
+  eqList(starts(drumsFor("Kick", "1/8")), {0,0.5,1,1.5,2,2.5,3,3.5},
+         "a kick every 1/8")
+  eq(#drumsFor("Kick", "1/16").notes, 16, "a kick every 1/16 is sixteen hits")
 
-  st.drumPattern = indexOf(E.DRUM_PATTERNS, "And of Two")
-  eqList(starts(E.generate(st)), {1.5}, "the & of 2 is one hit, halfway through beat 2")
+  -- The snare starts on the two, which is what makes the backbeat fall out.
+  eqList(starts(drumsFor("Snare", "1/2")), {1, 3},
+         "a snare from beat two every 1/2 is the backbeat")
+  eqList(starts(drumsFor("Snare", "1/1")), {1}, "and every 1/1 is just the two")
+  eqList(starts(drumsFor("Snare", "1/4")), {1, 2, 3}, "every 1/4 from the two")
+  eqList(starts(drumsFor("Snare", "1/8")), {1,1.5,2,2.5,3,3.5}, "every 1/8 from the two")
 
-  st.drumPattern = indexOf(E.DRUM_PATTERNS, "Two Step")
-  eqList(starts(E.generate(st)), {0, 1.5, 3}, "two step")
+  eqList(pitches(drumsFor("Kick", "1/1")), {36}, "the kick is General MIDI 36")
+  eqList(pitches(drumsFor("Snare", "1/1")), {38}, "the snare is 38")
+  eq(#drumsFor("Closed HH", "1/32").notes, 32, "the hi-hat goes down to 1/32")
+  eq(#drumsFor("Ride", "1/32").notes, 32, "so does the ride")
 
-  st.drumPattern = indexOf(E.DRUM_PATTERNS, "Every 16th")
-  eq(#E.generate(st).notes, 16, "sixteen sixteenths")
+  -- Two bars is the same bar twice.
+  eqList(starts(drumsFor("Kick", "1/2", { bars = 2 })), {0, 2, 4, 6},
+         "two bars of one and three")
 
-  st.drumPattern = indexOf(E.DRUM_PATTERNS, "Four on the Floor")
-  st.bars = 2
-  eqList(starts(E.generate(st)), {0,1,2,3,4,5,6,7}, "two bars of it")
+  -- A shorter bar drops what runs past its end rather than squeezing it in.
+  eqList(starts(drumsFor("Kick", "1/4", { barBeats = 3 })), {0, 1, 2},
+         "a 3/4 bar holds three quarter-note kicks")
+  eqList(starts(drumsFor("Snare", "1/1", { barBeats = 1 })), {},
+         "a bar too short to reach beat two gets no snare at all")
+end
 
-  -- The patterns are written on a 4/4 grid, so a 3/4 bar drops the fourth hit
-  -- rather than squeezing it in.
-  st.bars = 1
-  st.barBeats = 3
-  eqList(starts(E.generate(st)), {0, 1, 2}, "a 3/4 bar drops what runs past its end")
+-- Each piece offers only the rates it should, and 1/1 is always last so that
+-- an unknown rate falls back to a single hit.
+do
+  local want = {
+    Kick        = { "1/16", "1/8", "1/4", "1/2", "1/1" },
+    Snare       = { "1/8", "1/4", "1/2", "1/1" },
+    ["Closed HH"] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
+    ["Open HH"] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
+    Crash       = { "1/16", "1/8", "1/4", "1/2", "1/1" },
+    Ride        = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
+    ["Low Tom"] = {}, ["Mid Tom"] = {}, ["High Tom"] = {},
+  }
+  for _, piece in ipairs(E.DRUM_PIECES) do
+    eqList(piece.rates, want[piece.name] or { "?" },
+           piece.name .. " offers the rates it should")
+    if #piece.rates > 0 then
+      eq(piece.rates[#piece.rates], "1/1", piece.name .. ": 1/1 is last")
+    end
+    checks = checks + 1
+    local known = false
+    for _, r in ipairs(E.RATES) do
+      for _, pr in ipairs(piece.rates) do if r.name == pr then known = true end end
+    end
+    if #piece.rates > 0 and not known then
+      fail(piece.name .. " offers a rate that is not a rate")
+    end
+  end
 
-  st.barBeats = 4
-  st.drumPiece = indexOf(E.DRUM_PIECES, "Closed HH")
-  eq(pitches(E.generate(st))[1], 42, "the closed hi-hat is General MIDI 42")
+  -- The toms are a single hit until they are thought through.
+  for _, name in ipairs({ "Low Tom", "Mid Tom", "High Tom" }) do
+    eqList(starts(drumsFor(name, "1/8")), {0}, name .. " is one hit")
+    eq(#drumsFor(name, "1/8", { bars = 2 }).notes, 2, name .. ": one a bar")
+  end
+
+  -- A rate the piece does not offer falls back to a single hit rather than
+  -- guessing at something near it.
+  eqList(starts(drumsFor("Snare", "1/16")), {1},
+         "a snare asked for 1/16, which it does not offer, gets one hit")
+end
+
+-- Shuffle pushes every second hit later, and only the second ones.
+do
+  eqList(starts(drumsFor("Closed HH", "1/8", { shuffle = 0 })),
+         {0,0.5,1,1.5,2,2.5,3,3.5}, "no shuffle is straight")
+
+  local swung = starts(drumsFor("Closed HH", "1/8", { shuffle = 100 }))
+  eqList(swung, {0, 2/3, 1, 1+2/3, 2, 2+2/3, 3, 3+2/3},
+         "full shuffle lands the off-beats two thirds through the pair")
+
+  local half = starts(drumsFor("Closed HH", "1/8", { shuffle = 50 }))
+  eq(half[1], 0, "the on-beats never move")
+  ok(math.abs(half[2] - (0.5 + 0.5 * 0.5 / 3)) < 1e-9,
+     "half shuffle is half way there")
+  ok(half[2] > 0.5 and half[2] < 2/3, "which is between straight and full")
+
+  -- Every hit still has to land inside the block it belongs to, however far
+  -- the shuffle pushes it.
+  for _, piece in ipairs({ "Kick", "Snare", "Closed HH", "Ride" }) do
+    for _, rate in ipairs(E.DRUM_PIECES[indexOf(E.DRUM_PIECES, piece)].rates) do
+      local r = drumsFor(piece, rate, { shuffle = 100, bars = 2 })
+      for _, n in ipairs(r.notes) do
+        checks = checks + 1
+        if n.start < 0 or n.start >= r.beats then
+          fail(("%s %s at full shuffle put a hit at %s, outside a %s beat block")
+               :format(piece, rate, n.start, r.beats))
+        end
+      end
+    end
+  end
+
+  -- A single hit has no second hit to push.
+  eqList(starts(drumsFor("Low Tom", "1/1", { shuffle = 100 })), {0},
+         "shuffle does nothing to a single hit")
+  eq(drumsFor("Low Tom", "1/1", { shuffle = 100 }).name, "Drum Low Tom",
+     "and the name does not claim one")
+  eq(drumsFor("Kick", "1/8", { shuffle = 60 }).name, "Drum Kick 1/8 shuffle 60",
+     "a shuffle that did something is named")
 end
 
 ------------------------------------------------------------------------------
@@ -506,7 +641,7 @@ do
     checks = checks + 1
     if #r.notes == 0 then fail(cat .. " generates nothing at all") end
     for _, n in ipairs(r.notes) do
-      if n.vel < 1 or n.vel > 127 then fail(cat .. ": velocity " .. n.vel) end
+      if n.vel ~= E.VELOCITY then fail(cat .. ": velocity " .. n.vel) end
       if n.len <= 0 then fail(cat .. ": zero-length note") end
       if n.start < 0 then fail(cat .. ": note before the start of the block") end
       if n.start >= r.beats + 1e-9 then
@@ -524,7 +659,7 @@ eq(#E.CHORDS, 78, "seventy-eight chords")
 eq(#E.SCALES, 16, "sixteen scales")
 eq(#E.ROOTS, 18, "eighteen roots")
 eq(#E.DRUM_PIECES, 9, "nine drum pieces")
-eq(#E.DRUM_PATTERNS, 9, "nine drum patterns")
+eq(E.VELOCITY, 100, "one velocity for everything")
 eq(#E.CATEGORIES, 6, "six kinds of block")
 
 do
