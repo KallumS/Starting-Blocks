@@ -181,11 +181,16 @@ def layout(raw):
     for fn in re.finditer(r'function (panel_\w+)\(x y\)(.*?)\n\);', gfx, re.S):
         name, body = fn.group(1), fn.group(2)
         bottoms = [0]
-        for m in re.finditer(r'\b(?:btn_row|btn)\(x[^,]*,\s*y\+(\d+),\s*\d+,\s*(\d+)', body):
+        for m in re.finditer(
+                r'\b(?:btn_row|btn|stepper|hslider)\([^,]*,\s*y\+(\d+),\s*\d+,\s*(\d+)',
+                body):
             bottoms.append(int(m.group(1)) + int(m.group(2)))
         # a ctl_ is a label then a 24px control 14px under it
-        for m in re.finditer(r'ctl_\w+\s*\(x(?:\s*\+\s*\d+)?,\s*y\+(\d+)\)', body):
-            bottoms.append(int(m.group(1)) + 14 + 24)
+        # a ctl_ is a label with a 24px control 14px under it, except
+        # ctl_follow, which is a bare button at the y it is handed
+        for m in re.finditer(r'ctl_(\w+)\s*\([^,]*,\s*y([+-])(\d+)', body):
+            at = int(m.group(3)) * (1 if m.group(2) == '+' else -1)
+            bottoms.append(at + 24 if m.group(1) == 'follow' else at + 14 + 24)
         bottom = panel_y + max(bottoms)
         if bottom > panel_bot:
             errs.append(f'{name}: reaches y={bottom}, the panel box ends at {panel_bot}')

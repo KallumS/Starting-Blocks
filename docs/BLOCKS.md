@@ -64,7 +64,10 @@ otherwise it is a **Subtonic**.
 
 ## Blocks
 
-**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**.
+**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**, **Progression**.
+
+The first six are single pieces. The seventh, **Progression**, is the one
+that links them together.
 
 ### Chords
 
@@ -296,6 +299,37 @@ pads in anything that follows the map.
 
 These are written on a 4/4 grid. In a shorter bar the hits past the end of
 it are dropped rather than squeezed in.
+
+### Progressions
+
+A progression is a sequence of scale degrees - up to twelve of them, each
+lasting one, two or four bars. It is the one block that is made of other
+blocks, and the only one that changes what the rest of them do.
+
+On its own tab it plays the chord on each step. The switch that matters is
+**Follow progression**, on the Chord, Arpeggio, Run and Bass panels: with it
+on, that block is laid out across the whole progression instead of sitting
+on one degree, so an arpeggio follows the changes rather than repeating.
+Melody and drums do not offer it - a step or a leap is a smaller thing than
+a chord change, and a drum has no degree to follow.
+
+| preset | degrees |
+| --- | --- |
+| I-V-vi-IV | 1 5 6 4 |
+| I-vi-IV-V | 1 6 4 5 |
+| ii-V-I | 2 5 1 |
+| vi-IV-I-V | 6 4 1 5 |
+| I-IV-V-I | 1 4 5 1 |
+| I-vi-ii-V | 1 6 2 5 |
+| i-VII-VI-VII | 1 7 6 7 |
+| Pachelbel | 1 5 6 3 4 1 4 5 |
+| 12-Bar Blues | 1 1 1 1 4 4 1 1 5 4 1 5 |
+
+Degrees are numbered from 1 here for reading; the numerals on screen are
+cased for the scale you are in, so `I-V-vi-IV` in C major shows as
+`I - V - vi - IV` and the same preset in C minor shows as `i - v - VI - iv`.
+A progression written for seven degrees folds into a shorter scale rather
+than running off the end of it.
 
 ## Timing
 

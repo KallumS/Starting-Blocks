@@ -46,12 +46,31 @@ signature in the API docs before destructuring anything, and make the mock in
 `tests/test_bridge.lua` match the real signature rather than the code's
 assumption about it - a mock that agrees with the bug tests nothing.
 
+## Generators
+
+Every generator writes through `note_add`, which offsets what it is given by
+`gen_ofs`. A generator sizes itself from `gen_len` and reads its degree from
+`gen_deg` - **not** from `sel_degree`, and not from `total_beats`. That is the
+whole of what makes a progression possible: `regenerate()` walks the steps,
+moving `gen_ofs` and `gen_deg`, and calls the same generator each time.
+
+`regenerate()` runs on the audio thread, so it must not touch anything `@gfx`
+writes. It used to borrow `sel_degree` and put it back, which was a race with
+the degree buttons; `gen_deg` exists so it does not have to.
+
+Melody sizes the block rather than being sized by it - `melody_beats()` is what
+`regenerate()` asks before calling it.
+
 ## State
 
 There are no sliders. All of it lives in `@serialize`, so the FX window is the
-custom UI and nothing else. Adding a setting means adding a `file_var` line,
-and old projects then read one variable short - bump `ser_ver` if that ever
-needs handling.
+custom UI and nothing else.
+
+`ser_ver` is 2. Adding a setting means adding a `file_var` line inside a
+`ser_ver >= N` guard and bumping the number, so an older project reads what it
+has and keeps the defaults for the rest. The reset to 2 after the read matters:
+without it an old project would be read as version 1 and then **saved** as
+version 1, dropping everything added since.
 
 ## Tables
 
@@ -61,6 +80,11 @@ and 31 semitones the reach. It is parallel to `#chord_names` and `#chord_syms`, 
 are `|` separated strings indexed at init. **Three places to edit for one
 chord.** `data_ok` catches a length mismatch at runtime and
 `tests/test_jsfx_data.py` catches a content mismatch before that.
+
+Preset progressions are the same shape of problem: `prog_add()` and
+`#prog_names` are parallel. The test reads each preset's name back into degrees
+and checks the table agrees, so a preset labelled `I-vi-IV-V` that does not play
+one fails before it ships.
 
 Scales and roots are copied from ScaleView for REAPER and the test asserts they
 still match it. Do not "tidy" them independently.

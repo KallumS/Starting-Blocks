@@ -46,6 +46,9 @@ LETTER_PC = 5280;     // pitch class each letter names on its own
 DIA_OFF   = 5300;     // diatonic stacks: 9 shapes * 8 scale-degree offsets
 DIA_CNT   = 5380;     // how many degrees each diatonic shape stacks
 HITS      = 5400;     // scratch: drum hit positions within one bar
+PROG      = 5420;     // the progression: one scale degree per step
+PRESET_DG = 5440;     // 9 preset progressions * 12 steps
+PRESET_LN = 5560;     // how many steps each preset has
 
 // Substring index tables: idx[k*2] = offset, idx[k*2+1] = length
 IDX_SCL   = 5600;
@@ -67,6 +70,7 @@ IDX_INV   = 6820;
 IDX_NUM   = 6880;     // roman numerals, upper then lower
 IDX_PCS   = 7000;     // plain pitch-class names, sharp spelling
 IDX_PCF   = 7040;     // plain pitch-class names, flat spelling
+IDX_PROG  = 7080;     // preset progression names
 
 // ---------------------------------------------------------------------------
 // gmem protocol, shared with Starting Blocks Bridge.lua
@@ -287,7 +291,7 @@ strcat(#chord_syms, "|Mystic|Petrushka|Tristan|So What|Dream|Vienna|Napoleon|It+
 
 strcpy(#scale_names, "Major|Minor|Harm Minor|Ionian|Dorian|Phrygian|Lydian|Mixolydian|Aeolian|Maj Pent|Min Pent|Maj Blues|Min Blues|Whole Tone|Dim W-H|Dim H-W");
 strcpy(#root_names,  "C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B|Cb");
-strcpy(#cat_names,   "Chord|Arpeggio|Run|Melody|Bass|Drums");
+strcpy(#cat_names,   "Chord|Arpeggio|Run|Melody|Bass|Drums|Progression");
 strcpy(#fam_names,   "Diatonic|Triads|6ths & 7ths|Extended|Altered|Sus & Add|Quartal|Named");
 strcpy(#dia_names,   "Triad|7th|9th|11th|13th|6th|sus2|sus4|5th");
 strcpy(#pat_names,   "Up|Down|Up/Down|Down/Up|Random|Converge|Diverge|1-3-5|3-1-5|5-3-1|3-5-1|1-5-3|5-1-3");
@@ -303,6 +307,7 @@ strcpy(#numerals,    "I|II|III|IV|V|VI|VII|VIII|i|ii|iii|iv|v|vi|vii|viii");
 strcpy(#degree_names,"Tonic|Supertonic|Mediant|Subdominant|Dominant|Submediant|Leading Tone|Octave");
 strcpy(#pc_sharp,    "C|C#|D|D#|E|F|F#|G|G#|A|A#|B");
 strcpy(#pc_flat,     "C|Db|D|Eb|E|F|Gb|G|Ab|A|Bb|B");
+strcpy(#prog_names,  "I-V-vi-IV|I-vi-IV-V|ii-V-I|vi-IV-I-V|I-IV-V-I|I-vi-ii-V|i-VII-VI-VII|Pachelbel|12-Bar Blues");
 
 n_scale_names = idx_build(#scale_names, IDX_SCL);
 n_root_names  = idx_build(#root_names,  IDX_ROOT);
@@ -324,11 +329,13 @@ idx_build(#numerals, IDX_NUM);
 idx_build(#degree_names, IDX_NUM + 64);
 idx_build(#pc_sharp, IDX_PCS);
 idx_build(#pc_flat, IDX_PCF);
+n_preset_names = idx_build(#prog_names, IDX_PROG);
 
 // If a chord is ever added to the table but not to one of the name strings the
 // UI would silently label everything after it wrongly, so say so instead.
 data_ok = (n_chord_names == n_chords) && (n_chord_syms == n_chords) &&
-          (n_scale_names == n_scales) && (n_root_names == n_roots);
+          (n_scale_names == n_scales) && (n_root_names == n_roots) &&
+          (n_preset_names == n_presets) && (n_cats == 7);
 
 // Diatonic stacks, as offsets in scale degrees from the chosen degree. These
 // are the chords the key hands you for free, so they are the default family.
@@ -350,6 +357,33 @@ dia_add(4, 0,2,4,5, 0,0,0);        // 6th
 dia_add(3, 0,1,4, 0,0,0,0);        // sus2
 dia_add(3, 0,3,4, 0,0,0,0);        // sus4
 dia_add(2, 0,4, 0,0,0,0,0);        // 5th
+
+MAXPROG = 12;
+
+// The progressions a song most often starts from, as scale degrees counted
+// from zero. Written for a seven-note scale; prog_clamp() folds them into a
+// shorter one. Twelve steps because the twelve-bar blues is twelve bars and
+// there was no honest way to fit it into eight.
+function prog_add(cnt a b c d e f g h i j k l) (
+  PRESET_LN[n_presets] = cnt;
+  PRESET_DG[n_presets*12+0] = a; PRESET_DG[n_presets*12+1] = b;
+  PRESET_DG[n_presets*12+2] = c; PRESET_DG[n_presets*12+3] = d;
+  PRESET_DG[n_presets*12+4] = e; PRESET_DG[n_presets*12+5] = f;
+  PRESET_DG[n_presets*12+6] = g; PRESET_DG[n_presets*12+7] = h;
+  PRESET_DG[n_presets*12+8] = i; PRESET_DG[n_presets*12+9] = j;
+  PRESET_DG[n_presets*12+10]= k; PRESET_DG[n_presets*12+11]= l;
+  n_presets += 1;
+);
+n_presets = 0;
+prog_add( 4, 0,4,5,3, 0,0,0,0,0,0,0,0);            // I-V-vi-IV
+prog_add( 4, 0,5,3,4, 0,0,0,0,0,0,0,0);            // I-vi-IV-V
+prog_add( 3, 1,4,0, 0,0,0,0,0,0,0,0,0);            // ii-V-I
+prog_add( 4, 5,3,0,4, 0,0,0,0,0,0,0,0);            // vi-IV-I-V
+prog_add( 4, 0,3,4,0, 0,0,0,0,0,0,0,0);            // I-IV-V-I
+prog_add( 4, 0,5,1,4, 0,0,0,0,0,0,0,0);            // I-vi-ii-V
+prog_add( 4, 0,6,5,6, 0,0,0,0,0,0,0,0);            // i-VII-VI-VII
+prog_add( 8, 0,4,5,2,3,0,3,4, 0,0,0,0);            // Pachelbel
+prog_add(12, 0,0,0,0,3,3,0,0,4,3,0,4);             // 12-bar blues
 
 // ---------------------------------------------------------------------------
 // State. Nothing lives in a slider: @serialize carries all of it, so the FX
@@ -379,11 +413,21 @@ sel_btone   = 0;    // which chord tone the bass plays
 sel_boct    = -1;   // bass octave offset
 sel_drp     = 0;    // drum piece
 sel_drs     = 1;    // drum style
+prog_len    = 4;    // how many steps the progression has
+prog_bars   = 1;    // bars each step lasts
+prog_follow = 0;    // when set, the other blocks walk the progression
+sel_step    = 0;    // which step the degree row is editing
 base_oct    = 4;    // C4 = 60
 midi_ch     = 0;
 loop_on     = 0;
 
+PROG[0] = 0; PROG[1] = 4; PROG[2] = 5; PROG[3] = 3;   // I-V-vi-IV to start
+
 bar_beats   = 4;
+gen_deg     = 0;    // the degree the generator is working on, which is a
+                    // step of the progression when one is being followed
+gen_ofs     = 0;    // where in the block the generator is writing
+gen_len     = 4;    // how long the piece it is writing should be
 dirty       = 1;
 n_notes     = 0;
 total_beats = 4;
@@ -467,9 +511,12 @@ function degree_title(s d) local(n) (
 // which kind of block it came from.
 // ---------------------------------------------------------------------------
 
+// st is relative to the piece being written, not to the block: gen_ofs is
+// where in the block that piece starts. For anything but a progression it is
+// zero and this is the identity.
 function note_add(st len p v) (
   n_notes < MAXNOTES && p >= 0 && p <= 127 ? (
-    NOTES[n_notes*4]   = st;
+    NOTES[n_notes*4]   = st + gen_ofs;
     NOTES[n_notes*4+1] = max(len, 0.015);
     NOTES[n_notes*4+2] = p | 0;
     NOTES[n_notes*4+3] = max(1, min(127, v | 0));
@@ -490,11 +537,11 @@ function chord_tones(inv) local(i j cnt base mask rot t) (
   sel_fam == 0 ? (
     i = 0;
     while (i < DIA_CNT[sel_dia]) (
-      TONES[cnt] = scale_pitch(sel_degree + DIA_OFF[sel_dia*8 + i]) + sel_oct*12;
+      TONES[cnt] = scale_pitch(gen_deg + DIA_OFF[sel_dia*8 + i]) + sel_oct*12;
       cnt += 1; i += 1;
     );
   ) : (
-    base = scale_pitch(sel_degree) + sel_oct*12;
+    base = scale_pitch(gen_deg) + sel_oct*12;
     mask = CH_MASK[sel_chord];
     i = 0;
     while (i < 32) (
@@ -551,8 +598,8 @@ function apply_dir(m dir) local(i j k t n lo hi) (
 function lay_steps(nseq step) local(pos idx len) (
   nseq > 0 ? (
     pos = 0; idx = 0;
-    while (pos < total_beats - 0.0001 && n_notes < MAXNOTES) (
-      len = min(step * sel_gate * 0.01, total_beats - pos);
+    while (pos < gen_len - 0.0001 && n_notes < MAXNOTES) (
+      len = min(step * sel_gate * 0.01, gen_len - pos);
       note_add(pos, len, SEQ[idx % nseq], sel_vel);
       idx += 1; pos += step;
     );
@@ -561,15 +608,13 @@ function lay_steps(nseq step) local(pos idx len) (
 
 function gen_chord() local(cnt i len) (
   cnt = chord_tones(sel_inv);
-  total_beats = bar_beats * sel_bars;
-  len = total_beats * sel_gate * 0.01;
+  len = gen_len * sel_gate * 0.01;
   i = 0;
   while (i < cnt) ( note_add(0, len, TONES[i], sel_vel); i += 1; );
 );
 
 function gen_arp() local(cnt m o i j nseq perm p0 p1 p2) (
   cnt = chord_tones(sel_inv);
-  total_beats = bar_beats * sel_bars;
   cnt > 0 ? (
     sel_pat < 7 ? (
       // A direction: every chord tone across the octave span, reordered.
@@ -606,11 +651,10 @@ function gen_arp() local(cnt m o i j nseq perm p0 p1 p2) (
 
 function gen_run() local(m i n nseq) (
   n = SCL_N[sel_scale];
-  total_beats = bar_beats * sel_bars;
   m = 0; i = 0;
   // Inclusive of the octave above, so a one-octave run lands back on the tonic.
   while (i <= n * sel_octaves && m < 128) (
-    POOL[m] = scale_pitch(sel_degree + i) + sel_oct*12; m += 1; i += 1;
+    POOL[m] = scale_pitch(gen_deg + i) + sel_oct*12; m += 1; i += 1;
   );
   nseq = apply_dir(m, sel_rundir);
   lay_steps(nseq, rate_beats());
@@ -623,39 +667,42 @@ function gen_melody() local(steps dir step len i a b) (
   dir  = sel_meldir ? -1 : 1;
   step = rate_beats();
   len  = step * sel_gate * 0.01;
-  a = scale_pitch(sel_degree) + sel_oct*12;
-  b = scale_pitch(sel_degree + dir*steps) + sel_oct*12;
+  a = scale_pitch(gen_deg) + sel_oct*12;
+  b = scale_pitch(gen_deg + dir*steps) + sel_oct*12;
   sel_shape == 0 ? (
     note_add(0, len, a, sel_vel);
     note_add(step, len, b, sel_vel);
-    total_beats = step * 2;
   ) : sel_shape == 1 ? (
     note_add(0, len, a, sel_vel);
     note_add(step, len, b, sel_vel);
     note_add(step*2, len, a, sel_vel);
-    total_beats = step * 3;
   ) : (
     i = 0;
     while (i <= steps) (
-      note_add(i*step, len, scale_pitch(sel_degree + dir*i) + sel_oct*12, sel_vel);
+      note_add(i*step, len, scale_pitch(gen_deg + dir*i) + sel_oct*12, sel_vel);
       i += 1;
     );
-    total_beats = step * (steps + 1);
   );
+);
+
+// A melodic cell is however long its own notes make it, so it sizes the block
+// rather than being sized by it.
+function melody_beats() local(steps) (
+  steps = sel_mel == 6 ? SCL_N[sel_scale] : sel_mel + 1;
+  rate_beats() * (sel_shape == 0 ? 2 : sel_shape == 1 ? 3 : steps + 1);
 );
 
 function gen_bass() local(cnt p step pos len idx) (
   // The bass reads the chord as it is stacked, so inversion is ignored here:
   // voice 0 is the root, 1 the third, 2 the fifth, 3 the seventh.
   cnt = chord_tones(0);
-  total_beats = bar_beats * sel_bars;
   step = rate_beats();
   cnt > 0 ? (
     idx = min(sel_btone, cnt - 1);
     p = TONES[idx] + sel_boct*12;
     pos = 0;
-    while (pos < total_beats - 0.0001 && n_notes < MAXNOTES) (
-      len = min(step * sel_gate * 0.01, total_beats - pos);
+    while (pos < gen_len - 0.0001 && n_notes < MAXNOTES) (
+      len = min(step * sel_gate * 0.01, gen_len - pos);
       note_add(pos, len, p, sel_vel);
       pos += step;
     );
@@ -679,7 +726,6 @@ function drum_hits() local(n i) (
 );
 
 function gen_drums() local(n i b p) (
-  total_beats = bar_beats * sel_bars;
   n = drum_hits();
   p = DRUM_NOTE[sel_drp];
   b = 0;
@@ -693,6 +739,29 @@ function gen_drums() local(n i b p) (
   );
 );
 
+// Whether this block is laid out across the progression rather than on the one
+// degree. The Progression tab always is - that is what it is. The others do it
+// when asked, except melody and drums: a step or a leap is smaller than a
+// chord change, and a drum has no degree to follow.
+function follows() (
+  sel_cat == 6 ? 1 :
+  prog_follow && prog_len > 1 &&
+  (sel_cat == 0 || sel_cat == 1 || sel_cat == 2 || sel_cat == 4);
+);
+
+// "I - V - vi - IV", read off the scale so it is cased for the key it is in.
+function prog_text(s sep ascii) local(i) (
+  strcpy(s, "");
+  i = 0;
+  while (i < prog_len) (
+    i ? strcat(s, sep);
+    ascii ? degree_numeral_ascii(#t9, PROG[i]) : degree_numeral(#t9, PROG[i]);
+    strcat(s, #t9);
+    i += 1;
+  );
+  s;
+);
+
 function chord_label(s) (
   sel_fam == 0 ? idx_get(s, #dia_names,  IDX_DIA, sel_dia)
                : idx_get(s, #chord_syms, IDX_CHS, sel_chord);
@@ -701,8 +770,13 @@ function chord_label(s) (
 function block_name(s) (
   idx_get(#t1, #root_names,  IDX_ROOT, sel_root);
   idx_get(#t2, #scale_names, IDX_SCL,  sel_scale);
-  degree_numeral_ascii(#t3, sel_degree);
-  sel_cat == 0 ? (
+  // Following a progression, the block is not on one degree, so the sequence
+  // stands in for the numeral and the name says what it really is.
+  follows() ? prog_text(#t3, "-", 1) : degree_numeral_ascii(#t3, sel_degree);
+  sel_cat == 6 ? (
+    chord_label(#t4);
+    sprintf(s, "%s %s Prog %s %s", #t1, #t2, #t3, #t4);
+  ) : sel_cat == 0 ? (
     chord_label(#t4);
     sprintf(s, "%s %s %s Chord %s", #t1, #t2, #t3, #t4);
   ) : sel_cat == 1 ? (
@@ -730,11 +804,43 @@ function block_name(s) (
   s;
 );
 
-function regenerate() (
+function gen_one(c) (
+  c == 0 ? gen_chord() : c == 1 ? gen_arp()  : c == 2 ? gen_run()
+: c == 3 ? gen_melody(): c == 4 ? gen_bass() : gen_drums();
+);
+
+// Keeps the progression inside the scale. A pentatonic has no sixth degree, so
+// a progression written for seven notes has to fold into it rather than run
+// off the end into the octave above.
+function prog_clamp() local(i n) (
+  n = SCL_N[sel_scale];
+  i = 0;
+  while (i < MAXPROG) ( PROG[i] = max(0, min(PROG[i], n - 1)); i += 1; );
+);
+
+function regenerate() local(i seg c) (
   n_notes = 0;
-  total_beats = bar_beats * sel_bars;
-  sel_cat == 0 ? gen_chord() : sel_cat == 1 ? gen_arp()    : sel_cat == 2 ? gen_run()
-: sel_cat == 3 ? gen_melody(): sel_cat == 4 ? gen_bass()   : gen_drums();
+  gen_ofs = 0;
+  // The Progression tab's own output is the chord on each of its steps.
+  c = sel_cat == 6 ? 0 : sel_cat;
+  follows() ? (
+    seg = prog_bars * bar_beats;
+    gen_len = seg;
+    total_beats = prog_len * seg;
+    i = 0;
+    while (i < prog_len) (
+      gen_deg = PROG[i];
+      gen_ofs = i * seg;
+      gen_one(c);
+      i += 1;
+    );
+    gen_ofs = 0;
+  ) : (
+    gen_deg = sel_degree;
+    gen_len = c == 3 ? melody_beats() : bar_beats * sel_bars;
+    total_beats = gen_len;
+    gen_one(c);
+  );
   block_name(#block_name);
   dirty = 0;
 );
@@ -764,7 +870,7 @@ function push_gmem(cmd) local(i n c) (
 );
 
 @serialize
-ser_ver = 1;
+ser_ver = 2;
 file_var(0, ser_ver);
 file_var(0, sel_root);   file_var(0, sel_scale);  file_var(0, sel_degree);
 file_var(0, sel_cat);    file_var(0, sel_fam);    file_var(0, sel_dia);
@@ -775,8 +881,16 @@ file_var(0, sel_vel);    file_var(0, sel_gate);   file_var(0, sel_mel);
 file_var(0, sel_meldir); file_var(0, sel_shape);  file_var(0, sel_btone);
 file_var(0, sel_boct);   file_var(0, sel_drp);    file_var(0, sel_drs);
 file_var(0, base_oct);   file_var(0, midi_ch);    file_var(0, loop_on);
+// Version 2 added the progression. A version 1 project has none of it, so read
+// nothing and leave the defaults; ser_ver goes back up to 2 below so the next
+// save writes the new fields rather than dropping them again.
+ser_ver >= 2 ? (
+  file_var(0, prog_len);  file_var(0, prog_bars);
+  file_var(0, prog_follow); file_var(0, sel_step);
+  file_mem(0, PROG, MAXPROG);
+);
 // file_avail is negative while writing, so this only fires on the way back in.
-file_avail(0) >= 0 ? ( dirty = 1; );
+file_avail(0) >= 0 ? ( ser_ver = 2; dirty = 1; );
 
 @block
 
@@ -912,6 +1026,7 @@ function pc_name(s p) (
 
 // "C E G B" for whatever chord is currently selected.
 function tones_text(s inv) local(cnt i) (
+  gen_deg = sel_degree;
   cnt = chord_tones(inv);
   strcpy(s, "");
   i = 0;
@@ -965,6 +1080,20 @@ function ctl_vel(x y) local(v) (
   v != sel_vel ? ( sel_vel = v; dirty = 1; );
 );
 
+// Drawn by every panel that can walk a progression. Hovering says what would
+// be followed, so the sequence itself does not need a permanent place on
+// screen outside the Progression tab.
+function ctl_follow(x y w) local(on) (
+  on = prog_follow && prog_len > 1;
+  btn(x, y, w, 24, "Follow progression", on) ? ( prog_follow = !prog_follow; dirty = 1; );
+  hit(x, y, w, 24) ? (
+    prog_len > 1 ? (
+      prog_text(#t8, " - ", 0);
+      sprintf(#hint, "Lay this block out across the progression:  %s", #t8);
+    ) : strcpy(#hint, "Set a progression of more than one step first, in the Progression tab");
+  );
+);
+
 function ctl_gate(x y) local(v) (
   label(x, y, "GATE %");
   v = hslider(12, x, y+14, 104, 24, sel_gate, 5, 100);
@@ -1007,6 +1136,7 @@ function panel_chord(x y) local(i r c cx cy) (
   ctl_bars  (x + 390, y+150);
   ctl_vel   (x + 588, y+150);
   ctl_gate  (x + 712, y+150);
+  ctl_follow(x + 826, y+164, 146);
 );
 
 function panel_arp(x y) local(r i) (
@@ -1014,6 +1144,7 @@ function panel_arp(x y) local(r i) (
   chord_label(#t7); tones_text(#t8, sel_inv);
   sprintf(#tmp2, "Chord:  %s   (%s)   -  change it in the Chord tab", #t7, #t8);
   ltext(x, y+2, #tmp2);
+  ctl_follow(x + 826, y-2, 146);
 
   label(x, y+22, "DIRECTION");
   r = btn_row(x, y+36, 92, 24, 4, #pat_names, IDX_PAT, 7, sel_pat);
@@ -1043,9 +1174,17 @@ function panel_run(x y) local(r) (
   gfx_setfont(1); setc(0.72, 0.74, 0.80);
   idx_get(#t7, #root_names, IDX_ROOT, sel_root);
   idx_get(#t8, #scale_names, IDX_SCL, sel_scale);
-  note_name(#t9, sel_degree);
-  sprintf(#tmp2, "Runs the %s %s scale, starting on %s", #t7, #t8, #t9);
+  // This line names the note the run starts from, so it has to stop naming one
+  // when the run is starting somewhere new on every step.
+  follows() ? (
+    prog_text(#t9, " - ", 0);
+    sprintf(#tmp2, "Runs the %s %s scale from each step of  %s", #t7, #t8, #t9);
+  ) : (
+    note_name(#t9, sel_degree);
+    sprintf(#tmp2, "Runs the %s %s scale, starting on %s", #t7, #t8, #t9);
+  );
   ltext(x, y+2, #tmp2);
+  ctl_follow(x + 826, y-2, 146);
 
   label(x, y+30, "DIRECTION");
   r = btn_row(x, y+44, 92, 24, 4, #pat_names, IDX_PAT, 7, sel_rundir);
@@ -1091,6 +1230,7 @@ function panel_bass(x y) local(r d) (
   chord_label(#t7); tones_text(#t8, 0);
   sprintf(#tmp2, "One note of the chord, on its own, low.   Chord:  %s   (%s)", #t7, #t8);
   ltext(x, y+2, #tmp2);
+  ctl_follow(x + 826, y-2, 146);
 
   label(x, y+30, "CHORD TONE");
   r = btn_row(x, y+44, 72, 24, 4, #btone_names, IDX_BTONE, n_btone, sel_btone);
@@ -1105,6 +1245,72 @@ function panel_bass(x y) local(r d) (
   ctl_bars(x,       y+130);
   ctl_vel (x + 208, y+130);
   ctl_gate(x + 332, y+130);
+);
+
+function panel_prog(x y) local(i r d bx on) (
+  label(x, y, "PRESET");
+  i = 0;
+  while (i < n_presets) (
+    // A preset lights up when the steps on screen are its steps, so editing
+    // one quietly drops the highlight rather than lying about what is loaded.
+    on = PRESET_LN[i] == prog_len;
+    on ? (
+      r = 0;
+      while (r < prog_len) (
+        PRESET_DG[i*12+r] != PROG[r] ? ( on = 0; r = prog_len; ) : ( r += 1; );
+      );
+    );
+    idx_get(#tmp2, #prog_names, IDX_PROG, i);
+    btn(x + i*108, y+14, 104, 24, #tmp2, on) ? (
+      prog_len = PRESET_LN[i];
+      r = 0;
+      while (r < MAXPROG) ( PROG[r] = PRESET_DG[i*12+r]; r += 1; );
+      prog_clamp();
+      sel_step = min(sel_step, prog_len - 1);
+      dirty = 1;
+    );
+    i += 1;
+  );
+
+  label(x, y+46, "STEPS");
+  i = 0;
+  while (i < prog_len) (
+    degree_numeral(#tmp2, PROG[i]);
+    btn(x + i*80, y+60, 76, 30, #tmp2, sel_step == i) ? sel_step = i;
+    hit(x + i*80, y+60, 76, 30) ? (
+      degree_title(#t7, PROG[i]);
+      note_name(#t8, PROG[i]);
+      sprintf(#hint, "Step %d:  %s, the %s.  Pick a different degree for it up top.",
+              i + 1, #t8, #t7);
+    );
+    i += 1;
+  );
+
+  gfx_setfont(1); setc(0.72, 0.74, 0.80);
+  chord_label(#t7);
+  sprintf(#tmp2,
+    "One %s on each step.  Click a step, then click a degree at the top to change it.",
+    #t7);
+  ltext(x, y+98, #tmp2);
+
+  label(x, y+122, "STEPS");
+  d = stepper(x, y+136, 84, 24, prog_len);
+  d ? (
+    prog_len = max(1, min(MAXPROG, prog_len + d));
+    sel_step = min(sel_step, prog_len - 1);
+    dirty = 1;
+  );
+
+  label(x + 104, y+122, "BARS EACH");
+  r = 0;
+  btn(x + 104, y+136, 40, 24, "1", prog_bars == 1) ? ( r = 1; );
+  btn(x + 148, y+136, 40, 24, "2", prog_bars == 2) ? ( r = 2; );
+  btn(x + 192, y+136, 40, 24, "4", prog_bars == 4) ? ( r = 4; );
+  r ? ( prog_bars = r; dirty = 1; );
+
+  ctl_octave(x + 252, y+122);
+  ctl_vel   (x + 356, y+122);
+  ctl_gate  (x + 480, y+122);
 );
 
 function panel_drums(x y) local(r) (
@@ -1222,29 +1428,43 @@ while (i < n_scales) (
   btn(bx, by, 118, 24, #tmp2, sel_scale == i) ? (
     sel_scale = i;
     sel_degree = min(sel_degree, SCL_N[sel_scale] - 1);
+    prog_clamp();
     dirty = 1;
   );
   i += 1;
 );
 
 // -- degree ----------------------------------------------------------------
-label(14, 154, "SCALE DEGREE");
+// In the Progression tab this row edits the step you have selected, which is
+// why the progression panel has no degree buttons of its own. Everywhere else
+// it sets the one degree - and if a block is currently following a
+// progression, clicking a degree is as clear a way as there is of saying stop.
+editing_step = sel_cat == 6;
+shown_degree = editing_step ? PROG[sel_step] : sel_degree;
+
+editing_step ? sprintf(#tmp2, "SCALE DEGREE  -  STEP %d OF %d", sel_step + 1, prog_len)
+             : strcpy(#tmp2, "SCALE DEGREE");
+label(14, 154, #tmp2);
+
 i = 0;
 while (i < SCL_N[sel_scale]) (
   bx = 14 + i * 102;
   degree_numeral(#tmp2, i);
-  btn(bx, 166, 96, 32, #tmp2, sel_degree == i) ? ( sel_degree = i; dirty = 1; );
+  btn(bx, 166, 96, 32, #tmp2, shown_degree == i) ? (
+    editing_step ? ( PROG[sel_step] = i; ) : ( sel_degree = i; prog_follow = 0; );
+    dirty = 1;
+  );
   hit(bx, 166, 96, 32) ? degree_title(#hint, i);
   i += 1;
 );
 gfx_setfont(1); setc(0.86, 0.88, 0.93);
-degree_title(#t7, sel_degree); note_name(#t8, sel_degree);
+degree_title(#t7, shown_degree); note_name(#t8, shown_degree);
 sprintf(#tmp2, "%s  %s", #t8, #t7);
 ltext(14 + SCL_N[sel_scale] * 102 + 8, 176, #tmp2);
 
 // -- which block -----------------------------------------------------------
 label(14, 206, "BUILDING BLOCK");
-r = btn_row(14, 218, 120, 30, 6, #cat_names, IDX_CAT, n_cats, sel_cat);
+r = btn_row(14, 218, 108, 30, 6, #cat_names, IDX_CAT, n_cats, sel_cat);
 r >= 0 ? ( sel_cat = r; dirty = 1; );
 
 // -- the panel for it ------------------------------------------------------
@@ -1254,14 +1474,17 @@ sel_cat == 0 ? panel_chord (20, 258) :
 sel_cat == 1 ? panel_arp   (20, 258) :
 sel_cat == 2 ? panel_run   (20, 258) :
 sel_cat == 3 ? panel_melody(20, 258) :
-sel_cat == 4 ? panel_bass  (20, 258) : panel_drums(20, 258);
+sel_cat == 4 ? panel_bass  (20, 258) :
+sel_cat == 5 ? panel_drums (20, 258) : panel_prog(20, 258);
 
 // -- preview ---------------------------------------------------------------
 label(14, 460, "BLOCK");
 gfx_setfont(1); setc(0.88, 0.90, 0.95);
 ltext(70, 458, #block_name);
 gfx_setfont(3); setc(0.46, 0.48, 0.55);
-sprintf(#tmp2, "%d notes  /  %.2f beats", n_notes, total_beats);
+n_notes >= MAXNOTES
+  ? sprintf(#tmp2, "%d notes (full)  /  %.2f beats", n_notes, total_beats)
+  : sprintf(#tmp2, "%d notes  /  %.2f beats", n_notes, total_beats);
 gfx_measurestr(#tmp2, tw, th);
 ltext(gfx_w - 14 - tw, 460, #tmp2);
 draw_preview(14, 474, gfx_w - 28, 76);

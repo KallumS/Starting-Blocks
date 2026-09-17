@@ -81,6 +81,9 @@ eq(len(dia_names),   len(dia),         "one name per diatonic stack")
 eq(len(set(chord_names)), len(chord_names), "no chord name appears twice")
 eq(len(set(chord_syms)),  len(chord_syms),  "no chord symbol appears twice")
 eq(len(fam_names), 8, "eight chord families, counting the diatonic one")
+eq(indexed_string("cat_names"),
+   ["Chord", "Arpeggio", "Run", "Melody", "Bass", "Drums", "Progression"],
+   "seven kinds of block")
 
 
 # -- scales ------------------------------------------------------------------
@@ -296,6 +299,52 @@ for name, dname in zip([d[0] for d in EXPECTED_DIA], dia_names):
     eq(dname, name, "diatonic names line up with the stacks")
 
 
+# -- progressions ------------------------------------------------------------
+
+presets = []
+for m in re.finditer(r"prog_add\(\s*(\d+),\s*([^)]*)\);\s*//\s*(.+)", src):
+    cnt = int(m.group(1))
+    degs = [int(x) for x in m.group(2).replace(" ", "").split(",")]
+    presets.append((m.group(3).strip(), cnt, degs[:cnt], degs))
+
+prog_names = indexed_string("prog_names")
+eq(len(prog_names), len(presets), "one name per preset progression")
+eq(len(presets), 9, "nine presets")
+
+MAXPROG = int(re.search(r"^MAXPROG\s*=\s*(\d+);", src, re.M).group(1))
+eq(MAXPROG, 12, "twelve steps, because the twelve-bar blues is twelve bars")
+
+# Most presets are named after their own numerals, so the name can be read back
+# into degrees and checked against the table. That is the mistake worth
+# catching: a preset whose label says one thing and whose notes say another.
+NUMERAL = {"i": 0, "ii": 1, "iii": 2, "iv": 3, "v": 4, "vi": 5, "vii": 6}
+for name, (comment, cnt, degs, all_degs) in zip(prog_names, presets):
+    eq(cnt, len(degs), f"preset {name}: length")
+    check(1 <= cnt <= MAXPROG, f"preset {name}: length fits the twelve steps")
+    eq(len(all_degs), MAXPROG, f"preset {name}: every slot is written")
+    for d in degs:
+        check(0 <= d <= 6, f"preset {name}: degree {d} is a degree of a seven-note scale")
+
+    parts = name.split("-")
+    if all(p.lower() in NUMERAL for p in parts):
+        eq(degs, [NUMERAL[p.lower()] for p in parts],
+           f"preset {name}: the degrees are the ones its name spells")
+
+named = {c: (cnt, degs) for c, cnt, degs, _ in presets}
+eq(named["Pachelbel"], (8, [0, 4, 5, 2, 3, 0, 3, 4]),
+   "Pachelbel is I-V-vi-iii-IV-I-IV-V")
+eq(named["12-bar blues"], (12, [0, 0, 0, 0, 3, 3, 0, 0, 4, 3, 0, 4]),
+   "the twelve-bar blues is I I I I IV IV I I V IV I V")
+
+# The steps row is twelve buttons 76 wide with a 4px gap, drawn from x=20.
+check(20 + MAXPROG * 80 - 4 <= 1000 - 8, "the steps row fits the window")
+
+# Following a progression makes the block prog_len * prog_bars bars long, and
+# the note buffer has to be able to say so when it runs out rather than
+# silently dropping the end.
+check("n_notes >= MAXNOTES" in src, "a full note buffer is shown, not hidden")
+
+
 # -- drums -------------------------------------------------------------------
 
 drum_notes = []
@@ -347,6 +396,9 @@ SPANS = [
     ("DIA_OFF", regions["DIA_OFF"], 9 * 8),
     ("DIA_CNT", regions["DIA_CNT"], 9),
     ("HITS", regions["HITS"], 16),
+    ("PROG", regions["PROG"], 12),
+    ("PRESET_DG", regions["PRESET_DG"], 9 * 12),
+    ("PRESET_LN", regions["PRESET_LN"], 9),
     ("IDX_SCL", regions["IDX_SCL"], 2 * len(scale_names)),
     ("IDX_ROOT", regions["IDX_ROOT"], 2 * len(root_names)),
     ("IDX_CAT", regions["IDX_CAT"], 2 * 6),
@@ -366,6 +418,7 @@ SPANS = [
     ("IDX_NUM", regions["IDX_NUM"], 64 + 2 * 8),
     ("IDX_PCS", regions["IDX_PCS"], 2 * 12),
     ("IDX_PCF", regions["IDX_PCF"], 2 * 12),
+    ("IDX_PROG", regions["IDX_PROG"], 2 * 9),
 ]
 SPANS.sort(key=lambda s: s[1])
 for (an, aat, alen), (bn, bat, blen) in zip(SPANS, SPANS[1:]):
@@ -385,5 +438,6 @@ check(int(gm["NAME"]) >= int(gm["NAMELEN"]) + 1,
 for f in failures:
     print("FAIL  " + f)
 print(f"{len(EXPECTED_CHORDS)} chords, {len(EXPECTED_SCALES)} scales, "
+      f"{len(presets)} progressions, "
       f"{len(failures)} failure{'' if len(failures) == 1 else 's'}")
 sys.exit(1 if failures else 0)

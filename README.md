@@ -38,11 +38,36 @@ builds on that degree, so the vii of major reads `vii°` and the III of natural
 minor reads `III`.
 
 Then pick what kind of block you want - **Chord**, **Arpeggio**, **Run**,
-**Melody**, **Bass**, **Drums** - and only that block's options are on screen.
-The piano roll underneath is whatever you have currently built.
+**Melody**, **Bass**, **Drums**, **Progression** - and only that block's
+options are on screen. The piano roll underneath is whatever you have
+currently built.
 
 Arpeggios and bass notes read the chord you set in the Chord tab, so there is
 one chord picker rather than four.
+
+## Linking blocks together
+
+The first six blocks are single pieces. The seventh is the one that connects
+them.
+
+A **progression** is a sequence of scale degrees - up to twelve, each lasting
+one, two or four bars, either a preset (`I-V-vi-IV`, `ii-V-I`, Pachelbel, the
+twelve-bar blues) or whatever you click in. Click a step and the degree row at
+the top sets it, which is why the progression panel has no degree buttons of
+its own.
+
+Then turn on **Follow progression** in the Chord, Arpeggio, Run or Bass panel.
+That block stops sitting on one degree and is laid out across the whole
+progression instead: an arpeggio follows the changes rather than repeating, a
+bass line walks them, a run starts from a different place each bar. One drag
+now gives you four bars that move.
+
+Melody and drums do not offer it, on purpose. A step or a leap is a smaller
+thing than a chord change, and a drum has no degree to follow.
+
+Clicking a degree at the top while a block is following turns following off and
+uses that degree - there is no dead control to notice and no mode to get stuck
+in.
 
 ## Getting a block out
 

@@ -32,6 +32,11 @@ for m in re.finditer(r"dia_add\((\d+),\s*([^)]*)\);", SRC):
     cnt = int(m.group(1))
     dia.append([int(x) for x in m.group(2).replace(" ", "").split(",")][:cnt])
 
+presets = []
+for m in re.finditer(r"prog_add\(\s*(\d+),\s*([^)]*)\);", SRC):
+    cnt = int(m.group(1))
+    presets.append([int(x) for x in m.group(2).replace(" ", "").split(",")][:cnt])
+
 drums = [n for _, n in sorted(
     (int(a), int(b)) for a, b in re.findall(r"DRUM_NOTE\[(\d+)\]\s*=\s*(\d+)", SRC))]
 
@@ -50,6 +55,7 @@ drp     = strings("drp_names")
 drs     = strings("drs_names")
 btone   = strings("btone_names")
 cats    = strings("cat_names")
+prognm  = strings("prog_names")
 
 # What each interval is called, for the chord table's second column.
 DEGREE = {0: "1", 1: "b9", 2: "9", 3: "b3", 4: "3", 5: "11", 6: "b5", 7: "5",
@@ -107,6 +113,9 @@ w("")
 w("## Blocks")
 w("")
 w(", ".join(f"**{c}**" for c in cats) + ".")
+w("")
+w("The first six are single pieces. The seventh, **Progression**, is the one")
+w("that links them together.")
 w("")
 w("### Chords")
 w("")
@@ -223,6 +232,30 @@ for s in drs:
 w("")
 w("These are written on a 4/4 grid. In a shorter bar the hits past the end of")
 w("it are dropped rather than squeezed in.")
+w("")
+w("### Progressions")
+w("")
+w("A progression is a sequence of scale degrees - up to twelve of them, each")
+w("lasting one, two or four bars. It is the one block that is made of other")
+w("blocks, and the only one that changes what the rest of them do.")
+w("")
+w("On its own tab it plays the chord on each step. The switch that matters is")
+w("**Follow progression**, on the Chord, Arpeggio, Run and Bass panels: with it")
+w("on, that block is laid out across the whole progression instead of sitting")
+w("on one degree, so an arpeggio follows the changes rather than repeating.")
+w("Melody and drums do not offer it - a step or a leap is a smaller thing than")
+w("a chord change, and a drum has no degree to follow.")
+w("")
+w("| preset | degrees |")
+w("| --- | --- |")
+for name, degs in zip(prognm, presets):
+    w(f"| {name} | {' '.join(str(d + 1) for d in degs)} |")
+w("")
+w("Degrees are numbered from 1 here for reading; the numerals on screen are")
+w("cased for the scale you are in, so `I-V-vi-IV` in C major shows as")
+w("`I - V - vi - IV` and the same preset in C minor shows as `i - v - VI - iv`.")
+w("A progression written for seven degrees folds into a shorter scale rather")
+w("than running off the end of it.")
 w("")
 w("## Timing")
 w("")
