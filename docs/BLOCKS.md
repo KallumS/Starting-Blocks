@@ -1,0 +1,298 @@
+# The catalogue
+
+Every block Starting Blocks can make, and exactly what each one is.
+
+**This file is generated.** Run `python3 tools/blocks_md.py > docs/BLOCKS.md`
+to rebuild it; it is read straight out of `jsfx/Starting Blocks.jsfx`, so it
+cannot drift from what the plugin actually does.
+
+## Keys
+
+18 roots: `C`, `C#`, `Db`, `D`, `D#`, `Eb`, `E`, `F`, `F#`, `Gb`, `G`, `G#`, `Ab`, `A`, `A#`, `Bb`, `B`, `Cb`.
+
+Both spellings of every pitch class are offered, plus `Cb`, because C# major
+and Db major are the same seven notes written differently and the difference
+is what the note names come out as. These are ScaleView for REAPER's roots,
+unchanged.
+
+## Scales
+
+Semitones from the root. Also ScaleView's, unchanged, so the two apps agree
+on what a scale is.
+
+| scale | semitones | notes |
+| --- | --- | --- |
+| Major | 0 2 4 5 7 9 11 | 7 |
+| Minor | 0 2 3 5 7 8 10 | 7 |
+| Harm Minor | 0 2 3 5 7 8 11 | 7 |
+| Ionian | 0 2 4 5 7 9 11 | 7 |
+| Dorian | 0 2 3 5 7 9 10 | 7 |
+| Phrygian | 0 1 3 5 7 8 10 | 7 |
+| Lydian | 0 2 4 6 7 9 11 | 7 |
+| Mixolydian | 0 2 4 5 7 9 10 | 7 |
+| Aeolian | 0 2 3 5 7 8 10 | 7 |
+| Maj Pent | 0 2 4 7 9 | 5 |
+| Min Pent | 0 3 5 7 10 | 5 |
+| Maj Blues | 0 2 3 4 7 9 | 6 |
+| Min Blues | 0 3 5 6 7 10 | 6 |
+| Whole Tone | 0 2 4 6 8 10 | 6 |
+| Dim W-H | 0 2 3 5 6 8 9 11 | 8 |
+| Dim H-W | 0 1 3 4 6 7 9 10 | 8 |
+
+## Scale degrees
+
+The degree buttons are Roman numerals, cased and marked for the triad the
+scale itself builds on that degree: upper case for major, lower for minor,
+`°` for diminished, `+` for augmented. That is read off the scale rather
+than assumed, so the modes and the blues scales come out right - the vii of
+major is `vii°`, the III of natural minor is `III`.
+
+| degree | name |
+| --- | --- |
+| 1 | Tonic |
+| 2 | Supertonic |
+| 3 | Mediant |
+| 4 | Subdominant |
+| 5 | Dominant |
+| 6 | Submediant |
+| 7 | Leading Tone |
+
+Only the seven-note scales have these names. In a pentatonic or a
+diminished scale the degrees are simply numbered. The seventh is called a
+**Leading Tone** only when it really is a semitone below the tonic;
+otherwise it is a **Subtonic**.
+
+## Blocks
+
+**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**.
+
+### Chords
+
+The first family is built from the scale you picked, so it is always in key:
+
+| shape | scale degrees above the one you chose |
+| --- | --- |
+| Triad | +0 +2 +4 |
+| 7th | +0 +2 +4 +6 |
+| 9th | +0 +2 +4 +6 +8 |
+| 11th | +0 +2 +4 +6 +8 +10 |
+| 13th | +0 +2 +4 +6 +8 +10 +12 |
+| 6th | +0 +2 +4 +5 |
+| sus2 | +0 +1 +4 |
+| sus4 | +0 +3 +4 |
+| 5th | +0 +4 |
+
+The rest are absolute shapes, stacked on the degree you chose whether or not
+they fit the key. Semitones are from the chord's root.
+
+#### Triads
+
+| symbol | chord | semitones | intervals |
+| --- | --- | --- | --- |
+| `maj` | Major | 0 4 7 | 1 3 5 |
+| `m` | Minor | 0 3 7 | 1 b3 5 |
+| `dim` | Diminished | 0 3 6 | 1 b3 b5 |
+| `aug` | Augmented | 0 4 8 | 1 3 #5 |
+| `b5` | Flat Five | 0 4 6 | 1 3 b5 |
+| `5` | Fifth (Power) | 0 7 | 1 5 |
+
+#### 6ths & 7ths
+
+| symbol | chord | semitones | intervals |
+| --- | --- | --- | --- |
+| `6` | Sixth | 0 4 7 9 | 1 3 5 13 |
+| `m6` | Minor Sixth | 0 3 7 9 | 1 b3 5 13 |
+| `6/9` | Six-Nine | 0 4 7 9 14 | 1 3 5 13 9 |
+| `m6/9` | Minor Six-Nine | 0 3 7 9 14 | 1 b3 5 13 9 |
+| `7` | Dominant Seventh | 0 4 7 10 | 1 3 5 b7 |
+| `maj7` | Major Seventh | 0 4 7 11 | 1 3 5 7 |
+| `m7` | Minor Seventh | 0 3 7 10 | 1 b3 5 b7 |
+| `mMaj7` | Minor-Major Seventh | 0 3 7 11 | 1 b3 5 7 |
+| `m7b5` | Half-Diminished Seventh | 0 3 6 10 | 1 b3 b5 b7 |
+| `dim7` | Diminished Seventh | 0 3 6 9 | 1 b3 b5 13 |
+| `7#5` | Augmented Seventh | 0 4 8 10 | 1 3 #5 b7 |
+| `maj7#5` | Augmented Major Seventh | 0 4 8 11 | 1 3 #5 7 |
+| `7b5` | Seventh Flat Five | 0 4 6 10 | 1 3 b5 b7 |
+
+#### Extended
+
+| symbol | chord | semitones | intervals |
+| --- | --- | --- | --- |
+| `9` | Ninth | 0 4 7 10 14 | 1 3 5 b7 9 |
+| `maj9` | Major Ninth | 0 4 7 11 14 | 1 3 5 7 9 |
+| `m9` | Minor Ninth | 0 3 7 10 14 | 1 b3 5 b7 9 |
+| `mMaj9` | Minor-Major Ninth | 0 3 7 11 14 | 1 b3 5 7 9 |
+| `11` | Eleventh | 0 4 7 10 14 17 | 1 3 5 b7 9 11 |
+| `maj11` | Major Eleventh | 0 4 7 11 14 17 | 1 3 5 7 9 11 |
+| `m11` | Minor Eleventh | 0 3 7 10 14 17 | 1 b3 5 b7 9 11 |
+| `13` | Thirteenth | 0 4 7 10 14 17 21 | 1 3 5 b7 9 11 13 |
+| `maj13` | Major Thirteenth | 0 4 7 11 14 17 21 | 1 3 5 7 9 11 13 |
+| `m13` | Minor Thirteenth | 0 3 7 10 14 17 21 | 1 b3 5 b7 9 11 13 |
+
+#### Altered
+
+| symbol | chord | semitones | intervals |
+| --- | --- | --- | --- |
+| `7b9` | Seventh Flat Nine | 0 4 7 10 13 | 1 3 5 b7 b9 |
+| `7#9` | Seventh Sharp Nine | 0 4 7 10 15 | 1 3 5 b7 #9 |
+| `7#11` | Seventh Sharp Eleven | 0 4 7 10 18 | 1 3 5 b7 #11 |
+| `7b13` | Seventh Flat Thirteen | 0 4 7 10 20 | 1 3 5 b7 b13 |
+| `7#5b9` | Seventh Sharp Five Flat Nine | 0 4 8 10 13 | 1 3 #5 b7 b9 |
+| `7#5#9` | Seventh Sharp Five Sharp Nine | 0 4 8 10 15 | 1 3 #5 b7 #9 |
+| `7b5b9` | Seventh Flat Five Flat Nine | 0 4 6 10 13 | 1 3 b5 b7 b9 |
+| `7alt` | Altered Dominant | 0 4 8 10 13 15 | 1 3 #5 b7 b9 #9 |
+| `13b9` | Thirteenth Flat Nine | 0 4 7 10 13 21 | 1 3 5 b7 b9 13 |
+| `maj7#11` | Major Seventh Sharp Eleven | 0 4 7 11 18 | 1 3 5 7 #11 |
+| `m9b5` | Minor Ninth Flat Five | 0 3 6 10 14 | 1 b3 b5 b7 9 |
+
+#### Sus & Add
+
+| symbol | chord | semitones | intervals |
+| --- | --- | --- | --- |
+| `sus2` | Suspended Second | 0 2 7 | 1 9 5 |
+| `sus4` | Suspended Fourth | 0 5 7 | 1 11 5 |
+| `7sus4` | Seventh Suspended Fourth | 0 5 7 10 | 1 11 5 b7 |
+| `9sus4` | Ninth Suspended Fourth | 0 5 7 10 14 | 1 11 5 b7 9 |
+| `maj7sus4` | Major Seventh Suspended Fourth | 0 5 7 11 | 1 11 5 7 |
+| `add9` | Added Ninth | 0 4 7 14 | 1 3 5 9 |
+| `m(add9)` | Minor Added Ninth | 0 3 7 14 | 1 b3 5 9 |
+| `add4` | Added Fourth | 0 4 5 7 | 1 3 11 5 |
+| `add11` | Added Eleventh | 0 4 7 17 | 1 3 5 11 |
+| `add13` | Added Thirteenth | 0 4 7 21 | 1 3 5 13 |
+
+#### Quartal
+
+| symbol | chord | semitones |
+| --- | --- | --- |
+| `Q4/3` | Quartal Triad | 0 5 10 |
+| `Q4/4` | Quartal Tetrad | 0 5 10 15 |
+| `Q5/3` | Quintal Triad | 0 7 14 |
+| `WT3` | Whole-Tone Trichord | 0 2 4 |
+| `cluster` | Chromatic Cluster | 0 1 2 |
+| `dia-cl` | Diatonic Cluster | 0 2 4 5 |
+
+#### Named
+
+| symbol | chord | semitones |
+| --- | --- | --- |
+| `Mystic` | Mystic (Scriabin) | 0 6 10 16 21 26 |
+| `Petrushka` | Petrushka | 0 4 6 7 10 13 |
+| `Tristan` | Tristan | 0 6 10 15 |
+| `So What` | So What | 0 5 10 15 19 |
+| `Dream` | Dream | 0 5 6 7 |
+| `Vienna` | Viennese Trichord | 0 1 6 |
+| `Napoleon` | Ode-to-Napoleon | 0 1 4 5 8 9 |
+| `It+6` | Italian Sixth | 0 4 10 |
+| `Fr+6` | French Sixth | 0 4 6 10 |
+| `Ger+6` | German Sixth | 0 4 7 10 |
+
+Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three
+octaves either way.
+
+### Arpeggios
+
+The chord from the Chord tab, one note at a time. Two ways to order it, and
+you pick one or the other:
+
+**Directions** lay every chord tone across the octave span out in pitch order
+and then walk them:
+
+- **Up**
+- **Down**
+- **Up/Down**
+- **Down/Up**
+- **Random**
+- **Converge**
+- **Diverge**
+
+`Random` is a shuffle rather than free picks, so every tone of the chord
+gets its turn before any of them repeats. `Converge` works inwards from the
+outside, `Diverge` outwards from the middle.
+
+**Fixed orders** put the lowest three voices in a set order. Anything above
+them - a seventh, a ninth, an eleventh, a thirteenth - follows in order, and
+the whole cell climbs an octave at a time:
+
+`1-3-5`, `3-1-5`, `5-3-1`, `3-5-1`, `1-5-3`, `5-1-3`.
+
+### Runs
+
+The same seven directions, but over the scale rather than the chord, starting
+on the degree you chose and running up to four octaves. A one-octave run is
+inclusive of the octave above, so it lands back on the note it started from.
+
+
+### Melody
+
+The two smallest moves a melody can make. An interval, a direction, and a
+shape:
+
+| interval | |
+| --- | --- |
+| 2nd | the step |
+| 3rd | a leap |
+| 4th | a leap |
+| 5th | a leap |
+| 6th | a leap |
+| 7th | a leap |
+| Octave | a leap |
+
+| shape | |
+| --- | --- |
+| Single | the move: two notes |
+| Return | there and back: three notes |
+| Fill | every scale note in between |
+
+All of it is diatonic: a 3rd is two scale steps, whatever that is in
+semitones in this key.
+
+### Bass
+
+One note of the chord, on its own, low. Inversion is ignored here, so the
+voices are always counted from the root: Root, 3rd, 5th, 7th.
+Up to three octaves down, repeating at the chosen rate.
+
+### Drums
+
+One piece of the kit, one pattern, one bar. Stack a kit up by dropping in
+several. The note numbers are General MIDI, so the blocks land on the right
+pads in anything that follows the map.
+
+| piece | note |
+| --- | --- |
+| Kick | 36 |
+| Snare | 38 |
+| Closed HH | 42 |
+| Open HH | 46 |
+| Crash | 49 |
+| Ride | 51 |
+| Low Tom | 41 |
+| Mid Tom | 47 |
+| High Tom | 50 |
+
+| pattern | where the hits fall |
+| --- | --- |
+| One Hit | 1 |
+| Four on the Floor | 1, 2, 3, 4 |
+| One & Three | 1, 3 |
+| Two & Four | 2, 4 |
+| And of Two | the & of 2 |
+| Two Step | 1, the & of 2, 4 |
+| Off-beats | the & of every beat |
+| Every 8th | all eight eighths |
+| Every 16th | all sixteen sixteenths |
+
+These are written on a 4/4 grid. In a shorter bar the hits past the end of
+it are dropped rather than squeezed in.
+
+## Timing
+
+| rate | 1/64 | 1/32 | 1/16 | 1/8 | 1/4 | 1/2 | 1/1 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| quarter notes | 0.0625 | 0.125 | 0.25 | 0.5 | 1.0 | 2.0 | 4.0 |
+
+Each one can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a half.
+
+**Gate** is how much of the step the note actually holds, from 5% to 100%.
+**Bars** is 1, 2, 4 or 8, and a bar is however long the project's time
+signature says it is.
