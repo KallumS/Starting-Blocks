@@ -19,15 +19,26 @@ question needs `reaper.`, the answer is to pass the value in, not to reach out.
 
 ## Generators
 
-Each one writes into a segment. `c.notes` is the block so far, `c.ofs` is where
-in the block this piece starts, `c.len` is how long it should be, `c.degree` is
-the degree it is on. Following a progression is nothing more than calling the
-same generator once per step with a different `ofs` and `degree`, which is why
-no generator knows progressions exist. Do not let one start reading `st.degree`
-directly.
+Each one fills `c.notes` and leaves the block's length in `c.len`.
+`generate()` hands it `c.len` already set to `barBeats * bars`, which is what
+chord, bass and drums fill. The other three replace it: a melody is as long as
+its own notes, and an arpeggio or a run is as long as `repeats` passes of
+whatever the direction produced.
 
-Melody sizes the block rather than being sized by it - `M.melodyBeats(st)` is
-what `generate()` asks before calling it.
+**Bars and repeats are not alternatives to offer together.** A block is
+measured one way or the other, and which way is a property of the block, not a
+setting. Chord, bass and drums are bars; arpeggio and run are repeats; melody
+is neither.
+
+`layRepeats` counts notes rather than walking a clock, so the last note of a
+pass cannot land a rounding error short of the end. `M.passLength(st)` is the
+same count without generating anything, for the UI to show.
+
+There used to be a progression block that laid any of these out across a
+sequence of degrees, which is why generators once took an offset and a degree
+rather than reading `st`. It was removed on purpose - picking each chord
+yourself is the point - and the offset machinery went with it. Both are in the
+history if the idea comes back.
 
 ## State
 
@@ -35,6 +46,10 @@ One plain table describes a block completely, and every engine function is a
 pure function of it. `M.clampState(st)` puts every field back inside its table
 and inside the range of the slider that shows it; the script calls it after
 loading saved settings, and `tests/test_ui.lua` feeds it nonsense to check.
+
+Settings are saved as `key=value` pairs in one ExtState string. A field dropped
+from `SAVED` simply stops being written and is ignored on the way back in, so
+removing a setting needs nothing else done to old saved state.
 
 **Slider ranges in the script and the clamps in `clampState` have to agree.**
 ReaImGui refuses a value outside a slider's declared range, so a setting that
@@ -55,6 +70,12 @@ Every seven-note scale walks the letters in order, so those alone cannot tell
 the `letters` table apart from a plain index. The pentatonic, blues and
 diminished scales are what make it load-bearing, and the spelling tests use
 them for exactly that reason.
+
+Nothing the controls allow can overflow the note buffer any more - the longest
+block available is a diminished-scale run, four octaves, up and down, sixteen
+times, which is 1024 on the nose. The guard still has to work, so
+`test_engine.lua` shrinks `E.MAX_NOTES` to test it rather than pretending some
+setting reaches it.
 
 ## ReaImGui
 

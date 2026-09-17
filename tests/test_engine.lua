@@ -259,48 +259,51 @@ end
 ------------------------------------------------------------------------------
 
 do
-  -- One bar of 1/4 notes over a C major triad: four steps, so the cell of
-  -- three repeats into the fourth.
+  -- One repeat of an ascending arpeggio over a C major triad is three notes,
+  -- and the block is exactly that long: no padding out to a bar.
   local st = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/4") })
   local r = E.generate(st)
-  eqList(pitches(r), {60, 64, 67, 60}, "an ascending arpeggio, wrapping")
-  eqList(starts(r), {0, 1, 2, 3}, "one note per beat")
-  eq(r.beats, 4, "one bar")
+  eqList(pitches(r), {60, 64, 67}, "one pass up the chord")
+  eqList(starts(r), {0, 1, 2}, "one note per beat")
+  eq(r.beats, 3, "and the block stops when the arpeggio does")
 
+  st.repeats = 3
+  r = E.generate(st)
+  eq(#r.notes, 9, "three repeats is three passes")
+  eq(r.beats, 9, "and three times as long")
+  eqList(pitches(r), {60,64,67, 60,64,67, 60,64,67}, "the same pass, over again")
+
+  st.repeats = 1
   st.pattern = indexOf(E.DIRECTIONS, "Down")
-  eqList(pitches(E.generate(st)), {67, 64, 60, 67}, "descending")
+  eqList(pitches(E.generate(st)), {67, 64, 60}, "descending")
 
   st.pattern = indexOf(E.DIRECTIONS, "Converge")
-  eqList(pitches(E.generate(st)), {60, 67, 64, 60}, "converging")
+  eqList(pitches(E.generate(st)), {60, 67, 64}, "converging")
+
+  -- Up/Down is a longer pass than Up, so one repeat of it is longer.
+  st.pattern = indexOf(E.DIRECTIONS, "Up/Down")
+  local ud = E.generate(st)
+  eqList(pitches(ud), {60, 64, 67, 64}, "up and back down without repeating either end")
+  eq(ud.beats, 4, "and the block is as long as that pass")
+  eq(E.passLength(st), 4, "which is what a pass is reported to be")
 
   -- Two octaves widens the pool before the direction is applied.
   st.pattern = indexOf(E.DIRECTIONS, "Up")
   st.octaves = 2
-  st.rate    = indexOf(E.RATES, "1/8")
-  eqList(pitches(E.generate(st)), {60, 64, 67, 72, 76, 79, 60, 64},
-         "two octaves of chord tones, then round again")
+  local two = E.generate(st)
+  eqList(pitches(two), {60, 64, 67, 72, 76, 79}, "two octaves of chord tones")
+  eq(two.beats, 6, "one pass, six notes long")
+  eq(E.passLength(st), 6, "a pass is six")
 
-  -- The six fixed orders.
+  -- A seventh chord makes a longer pass again, which is the whole point of
+  -- counting repeats rather than bars.
   st.octaves = 1
-  st.rate = indexOf(E.RATES, "1/4")
-  st.patternIsOrder = true
-  local expected = {
-    ["1-3-5"] = {60, 64, 67}, ["3-1-5"] = {64, 60, 67},
-    ["5-3-1"] = {67, 64, 60}, ["3-5-1"] = {64, 67, 60},
-    ["1-5-3"] = {60, 67, 64}, ["5-1-3"] = {67, 60, 64},
-  }
-  for name, want in pairs(expected) do
-    st.pattern = indexOf(E.ORDERS, name)
-    local got = pitches(E.generate(st))
-    eqList({got[1], got[2], got[3]}, want, "order " .. name)
-  end
-
-  -- Anything above the triad follows the order, in order.
   st.dia = indexOf(E.DIATONIC, "7th")
-  st.pattern = indexOf(E.ORDERS, "3-1-5")
-  st.rate = indexOf(E.RATES, "1/4")
-  eqList(pitches(E.generate(st)), {64, 60, 67, 71},
-         "the seventh comes after the reordered triad")
+  eqList(pitches(E.generate(st)), {60, 64, 67, 71}, "a seventh arpeggiates four notes")
+  eq(E.passLength(st), 4, "and one pass is four")
+  st.dia = indexOf(E.DIATONIC, "13th")
+  eq(E.passLength(st), 7, "a thirteenth is seven")
+  eq(#E.generate(st).notes, 7, "and one repeat plays all of them")
 end
 
 ------------------------------------------------------------------------------
@@ -308,11 +311,20 @@ end
 ------------------------------------------------------------------------------
 
 do
-  local st = inKey("C", "Major", { cat = "Run", rate = indexOf(E.RATES, "1/4"), bars = 2 })
+  local st = inKey("C", "Major", { cat = "Run", rate = indexOf(E.RATES, "1/4") })
   local r = E.generate(st)
   eqList(pitches(r), {60, 62, 64, 65, 67, 69, 71, 72},
          "a one-octave run lands back on the note it started from")
-  eq(r.beats, 8, "two bars")
+  eq(r.beats, 8, "one pass of eight notes, one beat each")
+  eq(E.passLength(st), 8, "which is what a pass is reported to be")
+
+  st.repeats = 2
+  local twice = E.generate(st)
+  eq(#twice.notes, 16, "two repeats is two passes")
+  eq(twice.beats, 16, "and twice as long")
+  eqList({ twice.notes[9].pitch, twice.notes[16].pitch }, {60, 72},
+         "the second pass starts again from the bottom")
+  st.repeats = 1
 
   st.degree = 4
   eqList(pitches(E.generate(st)), {67, 69, 71, 72, 74, 76, 77, 79},
@@ -420,75 +432,6 @@ do
 end
 
 ------------------------------------------------------------------------------
--- Progressions: the blocks linking up
-------------------------------------------------------------------------------
-
-do
-  local st = inKey("C", "Major", { cat = "Progression" })
-  st.prog = { degrees = {0,4,5,3}, len = 4, bars = 1, follow = false }
-  local r = E.generate(st)
-
-  eq(r.beats, 16, "four steps of one bar")
-  eqList(pitches(r), {60,64,67, 67,71,74, 69,72,76, 65,69,72},
-         "I-V-vi-IV in C major is C E G / G B D / A C E / F A C")
-  eqList(starts(r), {0,0,0, 4,4,4, 8,8,8, 12,12,12},
-         "one chord per bar")
-  eq(r.name, "C Major Prog I-V-vi-IV Triad", "named after what it is")
-
-  st.prog.bars = 2
-  eq(E.generate(st).beats, 32, "two bars a step")
-  eqList(starts(E.generate(st)), {0,0,0, 8,8,8, 16,16,16, 24,24,24},
-         "and the chords move with it")
-
-  -- An arpeggio that follows is the same generator, once per step.
-  st.prog.bars = 1
-  st.cat = "Arpeggio"
-  st.prog.follow = true
-  st.rate = indexOf(E.RATES, "1/4")
-  local arp = E.generate(st)
-  eq(arp.beats, 16, "the arpeggio spans the whole progression")
-  eqList(pitches(arp), {60,64,67,60, 67,71,74,67, 69,72,76,69, 65,69,72,65},
-         "and arpeggiates each step's own chord")
-
-  -- Turning follow off puts it back on the one degree.
-  st.prog.follow = false
-  local single = E.generate(st)
-  eq(single.beats, 4, "with follow off it is one bar again")
-  eqList(pitches(single), {60,64,67,60}, "on the chosen degree")
-
-  -- Melody and drums do not follow, however the flag is set.
-  ok(not E.canFollow("Melody"), "melody does not follow a progression")
-  ok(not E.canFollow("Drums"), "nor do drums")
-  st.cat = "Melody"
-  st.prog.follow = true
-  eq(E.follows(st), false, "so the flag does nothing for them")
-
-  -- A single step is not a progression.
-  st.cat = "Chord"
-  st.prog.len = 1
-  eq(E.follows(st), false, "one step is not a progression")
-end
-
--- A progression in a minor key reads as that key.
-do
-  local st = inKey("A", "Minor", { cat = "Progression" })
-  st.prog = { degrees = {0,4,5,3}, len = 4, bars = 1, follow = false }
-  eq(E.progressionText(st, "-", true), "i-v-VI-iv",
-     "the same steps in A minor are i-v-VI-iv")
-  eqList(pitches(E.generate(st)), {69,72,76, 76,79,83, 77,81,84, 74,77,81},
-         "Am / Em / F / Dm")
-end
-
--- Folding a seven-degree progression into a five-note scale.
-do
-  local st = inKey("C", "Maj Pent")
-  st.prog = { degrees = {0,4,5,3,0,0,0,0,0,0,0,0}, len = 4, bars = 1, follow = false }
-  E.clampProgression(st)
-  eqList({st.prog.degrees[1], st.prog.degrees[2], st.prog.degrees[3], st.prog.degrees[4]},
-         {0, 4, 4, 3}, "the sixth degree folds back to the highest there is")
-end
-
-------------------------------------------------------------------------------
 -- Rate, gate and the note buffer
 ------------------------------------------------------------------------------
 
@@ -513,16 +456,29 @@ do
 end
 
 do
-  -- Twelve bars of sixteenth-note arpeggio is more notes than the buffer holds,
-  -- and the block has to say so rather than quietly dropping its end.
-  local st = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/64") })
-  st.prog = { degrees = {0,0,0,0,3,3,0,0,4,3,0,4}, len = 12, bars = 4, follow = true }
+  -- With progressions gone nothing a user can set reaches the note buffer any
+  -- more: the longest block available is a diminished scale run, four octaves,
+  -- up and down, sixteen times, which is 1024 on the nose. The guard still has
+  -- to work, so shrink the buffer and check it rather than pretending some
+  -- setting can overflow it.
+  local st = inKey("C", "Major", { cat = "Arpeggio", repeats = 8 })
+  local real = E.MAX_NOTES
+  E.MAX_NOTES = 5
   local r = E.generate(st)
-  eq(#r.notes, E.MAX_NOTES, "the buffer fills")
+  E.MAX_NOTES = real
+  eq(#r.notes, 5, "the buffer fills and stops")
   ok(r.truncated, "and says it was truncated")
 
-  local small = inKey("C", "Major")
-  ok(not E.generate(small).truncated, "an ordinary block is not")
+  ok(not E.generate(inKey("C", "Major")).truncated, "an ordinary block is not")
+
+  -- The longest thing the controls can actually ask for still fits.
+  local biggest = inKey("C", "Dim W-H", {
+    cat = "Run", octaves = 4, repeats = E.MAX_REPEATS,
+    runDir = indexOf(E.DIRECTIONS, "Up/Down"), rate = indexOf(E.RATES, "1/64") })
+  local big = E.generate(biggest)
+  ok(#big.notes <= E.MAX_NOTES,
+     "the longest block the controls allow fits the buffer (" .. #big.notes .. ")")
+  ok(not big.truncated, "so it is not truncated")
 end
 
 -- Nothing may ever leave the engine outside the MIDI range.
@@ -567,10 +523,9 @@ end
 eq(#E.CHORDS, 78, "seventy-eight chords")
 eq(#E.SCALES, 16, "sixteen scales")
 eq(#E.ROOTS, 18, "eighteen roots")
-eq(#E.PROGRESSIONS, 9, "nine preset progressions")
 eq(#E.DRUM_PIECES, 9, "nine drum pieces")
 eq(#E.DRUM_PATTERNS, 9, "nine drum patterns")
-eq(#E.CATEGORIES, 7, "seven kinds of block")
+eq(#E.CATEGORIES, 6, "six kinds of block")
 
 do
   local seenSym, seenName = {}, {}
@@ -644,43 +599,7 @@ do
   eq(n, 12, "the roots between them cover all twelve pitch classes")
 end
 
--- A preset whose name spells its numerals has to play them.
-do
-  local NUM = { i = 0, ii = 1, iii = 2, iv = 3, v = 4, vi = 5, vii = 6 }
-  for _, p in ipairs(E.PROGRESSIONS) do
-    local parts, allNumerals = {}, true
-    for part in p.name:gmatch("[^-]+") do
-      parts[#parts + 1] = part
-      if not NUM[part:lower()] then allNumerals = false end
-    end
-    if allNumerals then
-      local want = {}
-      for i, part in ipairs(parts) do want[i] = NUM[part:lower()] end
-      eqList(p.degrees, want, "preset " .. p.name .. " plays the degrees it names")
-    end
-    checks = checks + 1
-    if #p.degrees > E.MAX_PROG then fail(p.name .. " is longer than twelve steps") end
-    for _, d in ipairs(p.degrees) do
-      if d < 0 or d > 6 then fail(p.name .. ": degree " .. d .. " is not a degree") end
-    end
-  end
-end
-
--- Every ordering is a permutation of the triad, and each appears once.
-do
-  local seen = {}
-  for _, o in ipairs(E.ORDERS) do
-    local sorted = { o.perm[1], o.perm[2], o.perm[3] }
-    table.sort(sorted)
-    eqList(sorted, {1,2,3}, "order " .. o.name .. " is a permutation of the triad")
-    checks = checks + 1
-    local key = table.concat(o.perm, ",")
-    if seen[key] then fail("order " .. o.name .. " repeats " .. seen[key]) end
-    seen[key] = o.name
-  end
-  eq(#E.ORDERS, 6, "all six orderings")
-  eq(#E.DIRECTIONS, 7, "seven directions")
-end
+eq(#E.DIRECTIONS, 7, "seven directions")
 
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))
 os.exit(failures == 0 and 0 or 1)

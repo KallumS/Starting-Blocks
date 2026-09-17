@@ -74,34 +74,6 @@ function M.insert(block, track, time)
 end
 
 ------------------------------------------------------------------------------
--- Putting one where the mouse is
---
--- This is the drag-and-drop of the whole idea. A script cannot start an
--- operating system drag, but it does not need to: the track under the pointer
--- and the time under the pointer are both askable, so picking a block up and
--- putting it down lands it exactly where it looks like it should.
-------------------------------------------------------------------------------
-
-function M.mouseTarget(snap)
-  local x, y = reaper.GetMousePosition()
-  local track = reaper.GetTrackFromPoint(x, y)
-  if not track then return nil end
-
-  -- A one-pixel window of the arrange gives the time at that pixel.
-  local time = reaper.GetSet_ArrangeView2(0, false, x, x + 1, 0, 0)
-  if not time then return nil end
-  if time < 0 then time = 0 end
-  if snap then time = reaper.SnapToGrid(0, time) end
-  return track, time
-end
-
-function M.placeAtMouse(block, snap)
-  local track, time = M.mouseTarget(snap)
-  if not track then return M.NO_TRACK end
-  return M.insert(block, track, time)
-end
-
-------------------------------------------------------------------------------
 -- Writing one out
 ------------------------------------------------------------------------------
 

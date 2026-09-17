@@ -9,14 +9,10 @@
  *                 drop it where the mouse is, insert it at the edit cursor, or
  *                 write it out as a .mid.
  *
- *                 A progression is a sequence of degrees, and the Chord,
- *                 Arpeggio, Run and Bass blocks can follow it, which is what
- *                 turns single pieces into something that moves.
- *
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Starting-Blocks
- * Version:        2.0
+ * Version:        2.1
  * Provides:
  *   sb_engine.lua
  *   sb_midi.lua
@@ -67,13 +63,11 @@ local WARN        = 0xE09A5AFF
 
 local st = E.newState()
 local ui = {
-  snap    = true,
-  loop    = false,
-  status  = "",
-  warn    = false,
-  block   = nil,     -- the last generated block
-  dirty   = true,
-  armed   = false,   -- waiting for a click over the arrange
+  loop   = false,
+  status = "",
+  warn   = false,
+  block  = nil,      -- the last generated block
+  dirty  = true,
 }
 
 local ctx
@@ -96,19 +90,13 @@ end
 
 local SAVED = { "root", "scale", "degree", "cat", "family", "dia", "chord",
                 "inv", "oct", "pattern", "runDir", "rate", "rateMod",
-                "octaves", "bars", "vel", "gate", "interval", "melDir",
-                "shape", "bassTone", "bassOct", "drumPiece", "drumPattern",
-                "baseOct", "step" }
+                "octaves", "repeats", "bars", "vel", "gate", "interval",
+                "melDir", "shape", "bassTone", "bassOct", "drumPiece",
+                "drumPattern", "baseOct" }
 
 local function saveState()
   local out = {}
   for _, k in ipairs(SAVED) do out[#out + 1] = k .. "=" .. tostring(st[k]) end
-  out[#out + 1] = "patternIsOrder=" .. (st.patternIsOrder and 1 or 0)
-  out[#out + 1] = "progLen=" .. st.prog.len
-  out[#out + 1] = "progBars=" .. st.prog.bars
-  out[#out + 1] = "progFollow=" .. (st.prog.follow and 1 or 0)
-  out[#out + 1] = "prog=" .. table.concat(st.prog.degrees, ",")
-  out[#out + 1] = "snap=" .. (ui.snap and 1 or 0)
   reaper.SetExtState(SECTION, "state", table.concat(out, ";"), true)
 end
 
@@ -122,16 +110,6 @@ local function loadState()
   end
   for _, k in ipairs(SAVED) do
     if got[k] then st[k] = tonumber(got[k]) or got[k] end
-  end
-  if got.patternIsOrder then st.patternIsOrder = got.patternIsOrder == "1" end
-  if got.progLen    then st.prog.len    = tonumber(got.progLen) or 4 end
-  if got.progBars   then st.prog.bars   = tonumber(got.progBars) or 1 end
-  if got.progFollow then st.prog.follow = got.progFollow == "1" end
-  if got.snap       then ui.snap        = got.snap == "1" end
-  if got.prog then
-    local degs, i = {}, 0
-    for d in got.prog:gmatch("[^,]+") do i = i + 1; degs[i] = tonumber(d) or 0 end
-    if i > 0 then st.prog.degrees = degs end
   end
   -- A saved setting may name something that no longer exists, or a degree the
   -- scale does not have, or a value past the end of the slider that shows it.
@@ -263,18 +241,16 @@ local function barsRow()
   end
 end
 
-local function followToggle()
-  local on = st.prog.follow and st.prog.len > 1
-  if pick(on and "Following the progression" or "Follow progression", on, 0) then
-    st.prog.follow = not st.prog.follow
-    touched()
-  end
-  if st.prog.len > 1 then
-    tip("Lay this block out across the progression:  " ..
-        E.progressionText(st, " - "))
-  else
-    tip("Set a progression of more than one step first, in the Progression tab")
-  end
+-- How many times the pass plays. Says what a pass costs, because the answer
+-- moves with the chord: a triad is three notes, a thirteenth is seven.
+local function repeatsRow()
+  local pass = E.passLength(st)
+  local c, v = slider("repeats", "Repeats", st.repeats, 1, E.MAX_REPEATS, 150)
+  if c then st.repeats = v; touched() end
+  tip(("One pass is %d note%s, so this block is %d."):format(
+      pass, pass == 1 and "" or "s", pass * st.repeats))
+  ImGui.SameLine(ctx, 0, 14)
+  dim(("%d notes a pass"):format(pass))
 end
 
 local function commonTail(withOctaves, withOctave, withBars, withGate)
@@ -342,7 +318,6 @@ panels.Chord = function()
   local v = chooser("inv", E.INVERSIONS, st.inv + 1, 0, 58)
   if v then st.inv = v - 1; touched() end
   ImGui.SameLine(ctx, 0, 16)
-  followToggle()
 
   commonTail(false, true, true, true)
 end
@@ -351,37 +326,25 @@ panels.Arpeggio = function()
   dim(("Chord:  %s   -   set it in the Chord tab"):format(E.chordLabel(st)))
 
   dim("Direction")
-  local d = chooser("dir", E.DIRECTIONS,
-                    (not st.patternIsOrder) and st.pattern or 0, 0, 84)
-  if d then st.pattern, st.patternIsOrder = d, false; touched() end
-
-  dim("Fixed order")
-  local o = chooser("ord", E.ORDERS, st.patternIsOrder and st.pattern or 0, 0, 84,
-                    function(x) return x.name end,
-                    function() return "The lowest three voices in that order; " ..
-                      "anything above them follows, then the cell climbs an octave" end)
-  if o then st.pattern, st.patternIsOrder = o, true; touched() end
+  local d = chooser("dir", E.DIRECTIONS, st.pattern, 0, 84)
+  if d then st.pattern = d; touched() end
 
   rateRow()
-  commonTail(true, true, true, true)
-  followToggle()
+  repeatsRow()
+  commonTail(true, true, false, true)
 end
 
 panels.Run = function()
-  if E.follows(st) then
-    dim(("Runs the scale from each step of  %s"):format(E.progressionText(st, " - ")))
-  else
-    dim(("Runs the %s %s scale, starting on %s"):format(
-      E.ROOTS[st.root].name, E.SCALES[st.scale].name, E.noteName(st, st.degree)))
-  end
+  dim(("Runs the %s %s scale, starting on %s"):format(
+    E.ROOTS[st.root].name, E.SCALES[st.scale].name, E.noteName(st, st.degree)))
 
   dim("Direction")
   local d = chooser("rundir", E.DIRECTIONS, st.runDir, 0, 84)
   if d then st.runDir = d; touched() end
 
   rateRow()
-  commonTail(true, true, true, true)
-  followToggle()
+  repeatsRow()
+  commonTail(true, true, false, true)
 end
 
 panels.Melody = function()
@@ -419,7 +382,6 @@ panels.Bass = function()
 
   rateRow()
   commonTail(false, false, true, true)
-  followToggle()
 end
 
 panels.Drums = function()
@@ -441,65 +403,6 @@ panels.Drums = function()
   commonTail(false, false, true, false)
 end
 
-panels.Progression = function()
-  dim("Preset")
-  for i, p in ipairs(E.PROGRESSIONS) do
-    local same = #p.degrees == st.prog.len
-    if same then
-      for k = 1, st.prog.len do
-        if p.degrees[k] ~= st.prog.degrees[k] then same = false; break end
-      end
-    end
-    if i > 1 and (i - 1) % 5 ~= 0 then ImGui.SameLine(ctx) end
-    ImGui.PushID(ctx, "preset" .. i)
-    if pick(p.name, same, 118) then
-      st.prog.len = #p.degrees
-      st.prog.degrees = {}
-      for k = 1, E.MAX_PROG do st.prog.degrees[k] = p.degrees[k] or 0 end
-      E.clampProgression(st)
-      st.step = math.min(st.step, st.prog.len)
-      touched()
-    end
-    ImGui.PopID(ctx)
-  end
-
-  ImGui.Dummy(ctx, 0, 4)
-  dim("Steps  -  click one, then pick its degree at the top")
-  for i = 1, st.prog.len do
-    if i > 1 and (i - 1) % 12 ~= 0 then ImGui.SameLine(ctx) end
-    ImGui.PushID(ctx, "step" .. i)
-    if pick(E.degreeNumeral(st, st.prog.degrees[i] or 0), st.step == i, 64) then
-      st.step = i
-    end
-    tip(("Step %d:  %s, the %s"):format(i, E.noteName(st, st.prog.degrees[i] or 0),
-                                        E.degreeTitle(st, st.prog.degrees[i] or 0)))
-    ImGui.PopID(ctx)
-  end
-
-  ImGui.Dummy(ctx, 0, 4)
-  dim(("One %s on each step."):format(E.chordLabel(st)))
-
-  local c, v = slider("plen", "Steps", st.prog.len, 1, E.MAX_PROG, 150)
-  if c then
-    st.prog.len = v
-    for k = 1, E.MAX_PROG do st.prog.degrees[k] = st.prog.degrees[k] or 0 end
-    st.step = math.min(st.step, st.prog.len)
-    touched()
-  end
-  ImGui.SameLine(ctx, 0, 16)
-  dim("Bars each")
-  ImGui.SameLine(ctx)
-  for _, n in ipairs({1, 2, 4}) do
-    ImGui.PushID(ctx, "pbars" .. n)
-    if pick(tostring(n), st.prog.bars == n, 40) then st.prog.bars = n; touched() end
-    ImGui.PopID(ctx)
-    ImGui.SameLine(ctx)
-  end
-  ImGui.NewLine(ctx)
-
-  commonTail(false, true, false, true)
-end
-
 ------------------------------------------------------------------------------
 -- The frame
 ------------------------------------------------------------------------------
@@ -513,37 +416,24 @@ local function drawKey()
   if s then
     st.scale = s
     st.degree = math.min(st.degree, E.scaleLen(st) - 1)
-    E.clampProgression(st)
     touched()
   end
 end
 
 local function drawDegree()
-  local editingStep = st.cat == "Progression"
-  local shown = editingStep and (st.prog.degrees[st.step] or 0) or st.degree
-
-  ImGui.SeparatorText(ctx, editingStep
-    and ("Scale degree  -  step %d of %d"):format(st.step, st.prog.len)
-    or "Scale degree")
-
+  ImGui.SeparatorText(ctx, "Scale degree")
   for d = 0, E.scaleLen(st) - 1 do
     if d > 0 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "deg" .. d)
-    if pick(E.degreeNumeral(st, d), shown == d, 62) then
-      if editingStep then
-        st.prog.degrees[st.step] = d
-      else
-        -- Clicking a degree while a block is following is as clear a way as
-        -- there is of saying stop following.
-        st.degree, st.prog.follow = d, false
-      end
+    if pick(E.degreeNumeral(st, d), st.degree == d, 62) then
+      st.degree = d
       touched()
     end
     tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
     ImGui.PopID(ctx)
   end
   ImGui.SameLine(ctx, 0, 16)
-  dim(("%s   %s"):format(E.noteName(st, shown), E.degreeTitle(st, shown)))
+  dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
 end
 
 local function drawActions()
@@ -562,14 +452,6 @@ local function drawActions()
 
   ImGui.Dummy(ctx, 0, 2)
 
-  if pick(ui.armed and "Click over the arrange..." or "Place with the mouse",
-          ui.armed, 190) then
-    ui.armed = not ui.armed
-    say(ui.armed and "Move over the arrange and click to drop the block." or "")
-  end
-  tip("Pick the block up, then click on a track to put it down there")
-
-  ImGui.SameLine(ctx)
   if ImGui.Button(ctx, "Insert at cursor", 150, 0) then
     local r = Place.insert(block)
     if r == Place.OK then say("Inserted at the edit cursor")
@@ -598,34 +480,14 @@ local function drawActions()
       "will sound it. Timing is a preview, not a performance.")
 
   ImGui.SameLine(ctx)
-  local c
-  c, ui.loop = ImGui.Checkbox(ctx, "Loop", ui.loop)
-  ImGui.SameLine(ctx)
-  c, ui.snap = ImGui.Checkbox(ctx, "Snap", ui.snap)
+  local _
+  _, ui.loop = ImGui.Checkbox(ctx, "Loop", ui.loop)
 
   if ui.status ~= "" then
     ImGui.PushStyleColor(ctx, ImGui.Col_Text, ui.warn and WARN or DIM)
     ImGui.Text(ctx, ui.status)
     ImGui.PopStyleColor(ctx, 1)
   end
-end
-
--- While a block is held, a click anywhere over the arrange puts it down.
-local function handleArmedClick()
-  if not ui.armed then return end
-  if not ImGui.IsMouseClicked(ctx, 0) then return end
-  if ImGui.IsWindowHovered(ctx, ImGui.HoveredFlags_AnyWindow) then return end
-
-  local r = Place.placeAtMouse(ui.block, ui.snap)
-  if r == Place.OK then
-    say("Dropped it where you clicked")
-  elseif r == Place.NO_TRACK then
-    say("That was not over a track - try again, or click Place again to cancel", true)
-    return
-  else
-    say("Nothing to place", true)
-  end
-  ui.armed = false
 end
 
 local function frame()
@@ -648,7 +510,6 @@ local function frame()
 
   ImGui.Dummy(ctx, 0, 6)
   drawActions()
-  handleArmedClick()
 end
 
 ------------------------------------------------------------------------------
