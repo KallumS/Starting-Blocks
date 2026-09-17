@@ -104,6 +104,11 @@ A chord can be **chopped** into segments and struck again in each one, from
 the floor, a kick every 1/2 is one and three, a snare every 1/2 is the
 backbeat, and each piece has a **shuffle** that pushes every second hit later.
 
+Every block can be **straight, triplet or dotted**, and starts straight. It is
+one setting shown on every panel, and it applies to whatever that panel reads
+as a rate: the chord's chop, the spacing of a drum, the step an arpeggio walks
+in. A block that is not straight says so in its name.
+
 Everything leaves at velocity 100. Shaping a block's dynamics is a job for the
 MIDI editor once it is in the project, not for a slider on every panel here.
 

@@ -567,6 +567,78 @@ do
 end
 
 ------------------------------------------------------------------------------
+-- Straight, triplet and dotted
+--
+-- One setting, and every block that reads a rate has to read it: the chord's
+-- chop and the drum's spacing as well as the step the others walk in.
+------------------------------------------------------------------------------
+
+do
+  eq(E.RATE_MODS[E.newState().rateMod].name, "Straight", "straight is the default")
+  eq(#E.RATE_MODS, 3, "straight, triplet and dotted")
+
+  local TRIPLET = indexOf(E.RATE_MODS, "Triplet")
+  local DOTTED  = indexOf(E.RATE_MODS, "Dotted")
+
+  -- The drums.
+  eqList(starts(drumsFor("Kick", "1/4")), {0, 1, 2, 3}, "straight quarters")
+  eqList(starts(drumsFor("Kick", "1/4", { rateMod = TRIPLET })),
+         {0, 2/3, 4/3, 2, 8/3, 10/3},
+         "quarter-note triplets are six in the bar, three in the space of two")
+  eqList(starts(drumsFor("Kick", "1/4", { rateMod = DOTTED })), {0, 1.5, 3},
+         "dotted quarters are half as long again")
+  eqList(starts(drumsFor("Snare", "1/4", { rateMod = DOTTED })), {1, 2.5},
+         "and still start where the piece starts")
+
+  -- The chord's chop.
+  local st = inKey("C", "Major")
+  st.chop = indexOf(E.RATES, "1/4", "name")
+  eq(#E.generate(st).notes, 12, "four straight strikes of a triad")
+  st.rateMod = TRIPLET
+  eq(#E.generate(st).notes, 18, "six triplet strikes")
+  eq(E.chopBeats(st), 2/3, "a quarter-note triplet is two thirds of a beat")
+  st.rateMod = DOTTED
+  eq(#E.generate(st).notes, 9, "three dotted strikes")
+  eq(E.chopBeats(st), 1.5, "a dotted quarter is a beat and a half")
+
+  -- The blocks that walk a step.
+  local arp = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/8") })
+  eq(E.rateBeats(arp), 0.5, "a straight eighth")
+  arp.rateMod = TRIPLET
+  eq(E.rateBeats(arp), 0.5 * 2 / 3, "an eighth-note triplet")
+  eq(E.generate(arp).beats, 3 * 0.5 * 2 / 3, "and the pass is that much shorter")
+  arp.rateMod = DOTTED
+  eq(E.rateBeats(arp), 0.75, "a dotted eighth")
+
+  -- Shuffle is measured against whatever the step turned out to be, so the two
+  -- compose rather than fighting.
+  local swung = starts(drumsFor("Closed HH", "1/8",
+                                { rateMod = TRIPLET, shuffle = 100 }))
+  local step = 0.5 * 2 / 3
+  ok(math.abs(swung[2] - (step + step / 3)) < 1e-9,
+     "a full shuffle on triplets is measured against the triplet")
+
+  -- Names have to tell the three apart, or two blocks land on one filename.
+  eq(drumsFor("Kick", "1/4", { rateMod = TRIPLET }).name, "Drum Kick 1/4T",
+     "a triplet drum is named T")
+  eq(drumsFor("Kick", "1/4", { rateMod = DOTTED }).name, "Drum Kick 1/4.",
+     "a dotted one is named with a dot")
+  eq(drumsFor("Kick", "1/4").name, "Drum Kick 1/4", "a straight one is not marked")
+
+  local named = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/8") })
+  eq(E.blockName(named), "C Major I Arp Triad Up 1/8", "a straight arpeggio")
+  named.rateMod = TRIPLET
+  eq(E.blockName(named), "C Major I Arp Triad Up 1/8T", "a triplet one")
+
+  -- A 1/1 chop is silent in the name only while it is straight; a 1/1 triplet
+  -- is a different block and has to say so.
+  local chord = inKey("C", "Major")
+  eq(E.blockName(chord), "C Major I Chord Triad", "a plain held chord")
+  chord.rateMod = TRIPLET
+  eq(E.blockName(chord), "C Major I Chord Triad 1/1T", "a triplet one is marked")
+end
+
+------------------------------------------------------------------------------
 -- Rate, gate and the note buffer
 ------------------------------------------------------------------------------
 

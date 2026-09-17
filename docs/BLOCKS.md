@@ -293,7 +293,8 @@ A bar too short to reach a piece's first hit gets no hit at all.
 **Shuffle** pushes every second hit later, from 0 to 100. At 100 it lands
 two thirds of the way through the pair, which is the triplet feel a shuffle
 is named after; anything less is on the way there. A piece that is only hit
-once has no second hit to push.
+once has no second hit to push. Shuffle is measured against whatever the
+step turned out to be, so it composes with a triplet rather than fighting it.
 
 ## Timing
 
@@ -301,7 +302,14 @@ once has no second hit to push.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | quarter notes | 0.0625 | 0.125 | 0.25 | 0.5 | 1 | 2 | 4 |
 
-Each one can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a half.
+Every block can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a
+half - and straight is where it starts. It is one setting shown on every
+panel, because a block is in one feel or the other and it is the same
+question wherever it is asked. It applies to whatever that panel reads as a
+rate: the chord's chop, the spacing of a drum, and the step an arpeggio, run,
+melody or bass line walks in. A block that is not straight says so in its
+name, `T` for a triplet and `.` for a dotted one, so two feels of the same
+rate are not two files fighting over one filename.
 
 **Gate** is how much of the step the note actually holds, from 5% to 100%.
 

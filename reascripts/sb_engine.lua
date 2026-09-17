@@ -362,18 +362,38 @@ function M.rateByName(name)
   return 4
 end
 
+-- Straight, triplet or dotted. One setting, shown on every panel, applied
+-- wherever that panel reads a rate: the chord's chop, the drum's spacing, and
+-- the step an arpeggio, run, melody or bass line walks in.
+function M.modMul(st) return M.RATE_MODS[st.rateMod].mul end
+
+-- What to put after a rate in a block's name, so "1/8" and "1/8 triplet" are
+-- not two files with the same name.
+function M.modSuffix(st)
+  local name = M.RATE_MODS[st.rateMod].name
+  if name == "Triplet" then return "T" end
+  if name == "Dotted"  then return "." end
+  return ""
+end
+
 -- How often the chosen piece is hit, or nil when it only ever gets one hit.
 function M.drumStep(st)
   local piece = M.DRUM_PIECES[st.drumPiece]
   if #piece.rates == 0 then return nil end
   for _, r in ipairs(piece.rates) do
-    if r == st.drumRate then return M.rateByName(r) end
+    if r == st.drumRate then return M.rateByName(r) * M.modMul(st) end
   end
-  return M.rateByName(piece.rates[#piece.rates])   -- 1/1 is always last
+  -- 1/1 is always last
+  return M.rateByName(piece.rates[#piece.rates]) * M.modMul(st)
 end
 
 function M.rateBeats(st)
-  return M.RATES[st.rate].beats * M.RATE_MODS[st.rateMod].mul
+  return M.RATES[st.rate].beats * M.modMul(st)
+end
+
+-- The chord's segment, which is its own rate rather than the shared one.
+function M.chopBeats(st)
+  return M.RATES[st.chop].beats * M.modMul(st)
 end
 
 -- Settings can arrive from a saved project written by an older version, or one
@@ -552,7 +572,7 @@ GEN.Chord = function(st, c)
   -- At 1/1 over one bar that is a single held chord, which is what it was
   -- before the chop existed.
   local tones = M.chordTones(st, st.degree, st.inv)
-  local seg   = M.RATES[st.chop].beats
+  local seg   = M.chopBeats(st)
   local n     = math.max(1, math.ceil(c.len / seg - 1e-9))
   for i = 0, n - 1 do
     local at  = i * seg
@@ -661,11 +681,12 @@ function M.blockName(st)
   local root  = M.ROOTS[st.root].name
   local scale = M.SCALES[st.scale].name
   local where = M.degreeNumeral(st, st.degree, true)
-  local rate  = M.RATES[st.rate].name
+  local rate  = M.RATES[st.rate].name .. M.modSuffix(st)
   local times = st.repeats > 1 and (" x" .. st.repeats) or ""
 
   if st.cat == "Chord" then
-    local chop = (st.chop < #M.RATES) and (" " .. M.RATES[st.chop].name) or ""
+    local chop = (st.chop < #M.RATES or st.rateMod > 1)
+                 and (" " .. M.RATES[st.chop].name .. M.modSuffix(st)) or ""
     return ("%s %s %s Chord %s%s"):format(root, scale, where,
                                           M.chordLabel(st), chop)
   elseif st.cat == "Arpeggio" then
@@ -687,7 +708,7 @@ function M.blockName(st)
   local piece = M.DRUM_PIECES[st.drumPiece]
   if #piece.rates == 0 then return "Drum " .. piece.name end
   local swing = (st.shuffle > 0) and (" shuffle " .. st.shuffle) or ""
-  return ("Drum %s %s%s"):format(piece.name, st.drumRate, swing)
+  return ("Drum %s %s%s%s"):format(piece.name, st.drumRate, M.modSuffix(st), swing)
 end
 
 -- The whole point of the file. Returns the notes in quarter notes from the

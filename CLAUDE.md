@@ -76,6 +76,14 @@ removing a setting needs nothing else done to old saved state. Values come back
 through `tonumber(v) or v`, so a string setting is fine as long as it never
 looks like a number - the drum rates are `"1/8"` and friends, which never do.
 
+**One setting shown in many places beats one setting per place.** Straight,
+triplet and dotted is a single `rateMod` drawn on every panel, because a block
+is in one feel or the other and it is the same question wherever it is asked.
+Whatever a panel reads as a rate goes through it: `M.rateBeats`, `M.chopBeats`
+and `M.drumStep` all multiply by `M.modMul`. Adding a new rate-like setting
+means adding it to that list, and to `M.modSuffix` so two feels of one rate do
+not become two blocks with the same name.
+
 **Prefer a name to an index when a list differs between contexts.** `drumRate`
 is kept as `"1/8"`, not as position 3, so moving from a kick to a snare keeps
 1/8 as 1/8 instead of sliding it up a shorter list. An unknown name falls back

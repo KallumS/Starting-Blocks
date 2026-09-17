@@ -220,15 +220,25 @@ end
 -- Shared controls
 ------------------------------------------------------------------------------
 
+-- Straight, triplet or dotted. One setting shown on every panel, because a
+-- block is in one feel or the other and the choice is the same question
+-- wherever it is asked.
+local function modRow()
+  local m = chooser("ratemod", E.RATE_MODS, st.rateMod, 0, 72,
+                    function(x) return x.name end,
+                    function(x, i) return ({
+                      "Notes fall where the grid says",
+                      "Three in the space of two",
+                      "Half as long again" })[i] end)
+  if m then st.rateMod = m; touched() end
+end
+
 local function rateRow()
   dim("Rate")
-  local r = chooser("rate", E.RATES, st.rate, 0, 54,
-                    function(x) return x.name end)
+  local r = chooser("rate", E.RATES, st.rate, 0, 54, function(x) return x.name end)
   if r then st.rate = r; touched() end
   ImGui.SameLine(ctx, 0, 16)
-  local m = chooser("ratemod", E.RATE_MODS, st.rateMod, 0, 72,
-                    function(x) return x.name end)
-  if m then st.rateMod = m; touched() end
+  modRow()
 end
 
 local function barsRow()
@@ -323,6 +333,8 @@ panels.Chord = function()
                      function(x) return "Strike the chord again every " .. x.name ..
                        " through the block" end)
   if ch then st.chop = ch; touched() end
+  ImGui.SameLine(ctx, 0, 16)
+  modRow()
 
   commonTail(false, true, true, true)
 end
@@ -414,6 +426,8 @@ panels.Drums = function()
       if pick(name, st.drumRate == name, 54) then st.drumRate = name; touched() end
       ImGui.PopID(ctx)
     end
+    ImGui.SameLine(ctx, 0, 16)
+    modRow()
 
     dim("Shuffle")
     local c, v = slider("shuffle", "Shuffle %", st.shuffle, 0, 100, 150)
