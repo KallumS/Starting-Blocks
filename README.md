@@ -22,15 +22,61 @@ notes. F# major spells its seventh E#, here as there.
 
 ## Installing
 
-1. Install **ReaImGui** with ReaPack, from the ReaTeam Extensions repository.
-2. Put the four files in `reascripts/` together in one folder under
-   `<REAPER resource path>/Scripts/`. Actions -> Show REAPER resource path will
-   find it.
-3. Actions -> Show action list -> New action -> Load ReaScript, and pick
-   `Starting Blocks.lua`.
+**1. Install ReaImGui.** The script will not start without it.
+
+In REAPER: Extensions -> ReaPack -> Browse packages, search for `ReaImGui`,
+right-click it and Install. Then Extensions -> ReaPack -> Apply changes, and
+restart REAPER.
+
+If you have no ReaPack, get it from [reapack.com](https://reapack.com), put the
+file it gives you in `UserPlugins` inside the resource path below, restart, and
+then do the above.
+
+**2. Put all four files in one folder under Scripts.**
+
+Options -> Show REAPER resource path in explorer/finder, then into `Scripts/`.
+Make a folder and put these four in it together:
+
+```
+Scripts/Starting Blocks/
+  Starting Blocks.lua
+  sb_engine.lua
+  sb_midi.lua
+  sb_place.lua
+```
+
+They have to be in the same folder. `Starting Blocks.lua` loads the other three
+from wherever it is itself, so splitting them up stops it working.
+
+The resource path is `%APPDATA%\REAPER` on Windows,
+`~/Library/Application Support/REAPER` on macOS and `~/.config/REAPER` on Linux.
+
+**3. Load it as an action.** Actions -> Show action list -> New action ->
+Load ReaScript, and pick `Starting Blocks.lua`. It turns up in the action list,
+where you can run it, give it a shortcut, or right-click a toolbar button to
+put it there.
 
 It is a toggle, so running the action again closes the window. Escape closes it
 too.
+
+### If something goes wrong
+
+**It says it needs ReaImGui.** The extension is not installed, or REAPER has
+not been restarted since it was.
+
+**It errors on the line that loads ReaImGui.** Your ReaImGui is older than the
+version the script asks for. Either update it, or change `dofile(imgui_path)("0.9")`
+near the top of `Starting Blocks.lua` to the version you have.
+
+**It cannot find `sb_engine.lua`.** The four files are not in the same folder.
+
+**Audition makes no sound.** It plays through REAPER's virtual MIDI keyboard,
+so it needs a track that is record-armed with input monitoring on, holding an
+instrument. Insert, Place and Export do not need any of that.
+
+**You had version 1 installed.** Remove `Starting Blocks.jsfx` from `Effects/`
+and `Starting Blocks Bridge.lua` from `Scripts/`. The JSFX is retired and the
+bridge now does nothing.
 
 ## Using it
 
