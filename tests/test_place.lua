@@ -33,7 +33,7 @@ os.execute('rm -rf "' .. tmpdir .. '" && mkdir -p "' .. tmpdir .. '"')
 
 local items, stuffed = {}, {}
 local cursor, tempo, tsNum, tsDen = 0, 120, 4, 4
-local selected, underMouse, mouseTime = "selected", "underMouse", 3.25
+local selected = "selected"
 local undoDepth, undoNames = 0, {}
 
 reaper = {
@@ -44,13 +44,9 @@ reaper = {
   -- 120bpm, so one quarter note is half a second.
   TimeMap2_timeToQN = function(_, t) return t * (tempo / 60) end,
   TimeMap2_QNToTime = function(_, qn) return qn / (tempo / 60) end,
-  SnapToGrid = function(_, t) return math.floor(t * 2 + 0.5) / 2 end,
 
   GetSelectedTrack = function() return selected end,
   GetLastTouchedTrack = function() return nil end,
-  GetMousePosition = function() return 400, 300 end,
-  GetTrackFromPoint = function() return underMouse end,
-  GetSet_ArrangeView2 = function() return mouseTime, mouseTime + 0.05 end,
 
   CreateNewMIDIItemInProj = function(track, a, b)
     if track == "refuses" then return nil end
@@ -155,42 +151,6 @@ do
   -- A refusal from REAPER has to close the undo block it opened.
   eq(Place.insert(block, "refuses"), Place.NO_TRACK, "a refused item is reported")
   eq(undoDepth, 0, "and does not leave an undo block open")
-end
-
-------------------------------------------------------------------------------
--- Placing where the mouse is
---
--- This is the drag-and-drop of the whole idea, so it is worth being exact
--- about: the track under the pointer, the time under the pointer.
-------------------------------------------------------------------------------
-
-do
-  items = {}
-  mouseTime = 3.25
-  local track, time = Place.mouseTarget(false)
-  eq(track, "underMouse", "the track under the pointer")
-  eq(time, 3.25, "and the time under it")
-
-  local _, snapped = Place.mouseTarget(true)
-  eq(snapped, 3.5, "snapped to the grid when asked")
-
-  eq(Place.placeAtMouse(block, false), Place.OK, "placing works")
-  eq(items[1].track, "underMouse", "on the track under the pointer")
-  eq(items[1].pos, 3.25, "at the time under the pointer")
-  ok(items[1].track ~= "selected",
-     "and not on the selected track, which is a different thing")
-
-  -- Off the left edge of the project is not a negative position.
-  mouseTime = -2
-  local _, t = Place.mouseTarget(false)
-  eq(t, 0, "before the start of the project clamps to the start")
-  mouseTime = 3.25
-
-  -- Nothing under the pointer is a refusal, not a guess.
-  underMouse = nil
-  eq(Place.mouseTarget(false), nil, "off a track there is no target")
-  eq(Place.placeAtMouse(block, false), Place.NO_TRACK, "and nothing is placed")
-  underMouse = "underMouse"
 end
 
 ------------------------------------------------------------------------------

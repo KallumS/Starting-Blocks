@@ -10,7 +10,7 @@ key. Pick a degree of it. Then pull in the block you want and keep going.
 | | |
 | --- | --- |
 | `reascripts/Starting Blocks.lua` | The script you run. The window, and getting blocks into the project. |
-| `reascripts/sb_engine.lua` | The music: keys, scales, chords, progressions, generators. No REAPER in it. |
+| `reascripts/sb_engine.lua` | The music: keys, scales, chords, generators. No REAPER in it. |
 | `reascripts/sb_midi.lua` | Writing a block out as a standard MIDI file. |
 | `reascripts/sb_place.lua` | Everything that touches REAPER: inserting, exporting, auditioning. |
 | `docs/BLOCKS.md` | Every block it can make. Generated from the engine. |
@@ -86,20 +86,23 @@ builds on that degree, so the vii of major reads `vii°` and the III of natural
 minor reads `III`.
 
 Then pick what kind of block you want - **Chord**, **Arpeggio**, **Run**,
-**Melody**, **Bass**, **Drums**, **Progression** - and only that block's
-options are on screen. The piano roll underneath is whatever you have currently
-built.
+**Melody**, **Bass**, **Drums** - and only that block's options are on screen.
+The piano roll underneath is whatever you have currently built.
 
 Arpeggios and bass notes read the chord you set in the Chord tab, so there is
-one chord picker rather than four.
+one chord picker rather than three.
+
+Chords, bass and drums are measured in **bars**. Arpeggios and runs are
+measured in **repeats** instead: one repeat is one pass of whatever the
+direction produced, so the block is as long as the arpeggio and no longer. A
+triad up is three notes and a thirteenth up is seven, and Repeats of 1 gives
+you one of each rather than a bar of each. A melody is however long its own
+notes make it.
 
 ## Getting a block out
 
-- **Place with the mouse** picks the block up. Move over the arrange and click:
-  it lands on the track under the pointer, at the time under the pointer,
-  snapped to the grid if Snap is on. This is the drag-and-drop of the whole
-  idea. Click Place again to put it back down without using it.
-- **Insert at cursor** puts it on the selected track at the edit cursor.
+- **Insert at cursor** puts it on the selected track at the edit cursor, as one
+  MIDI item named after the block.
 - **Export .mid** writes it into `<REAPER resource path>/Starting Blocks/`.
   Point the Media Explorer at that folder and every block you export is one
   drag away from the arrange.
@@ -109,30 +112,6 @@ one chord picker rather than four.
   nearest wake-up, not on the sample. Anything that needs to be exact wants the
   block in the project, where REAPER plays it properly.
 
-## Linking blocks together
-
-The first six blocks are single pieces. The seventh is the one that connects
-them.
-
-A **progression** is a sequence of scale degrees - up to twelve, each lasting
-one, two or four bars, either a preset (`I-V-vi-IV`, `ii-V-I`, Pachelbel, the
-twelve-bar blues) or whatever you click in. Click a step and the degree row at
-the top sets it, which is why the progression panel has no degree buttons of
-its own.
-
-Then turn on **Follow progression** in the Chord, Arpeggio, Run or Bass panel.
-That block stops sitting on one degree and is laid out across the whole
-progression instead: an arpeggio follows the changes rather than repeating, a
-bass line walks them, a run starts from a different place each bar. One drop
-now gives you four bars that move.
-
-Melody and drums do not offer it, on purpose. A step or a leap is a smaller
-thing than a chord change, and a drum has no degree to follow.
-
-Clicking a degree at the top while a block is following turns following off and
-uses that degree - there is no dead control to notice and no mode to get stuck
-in.
-
 ## Checking it
 
 ```
@@ -141,15 +120,15 @@ tools/test.sh
 
 | | |
 | --- | --- |
-| `tests/test_engine.lua` | The generators, by running them. Every direction and ordering, the progressions, the spelling, the whole catalogue. |
+| `tests/test_engine.lua` | The generators, by running them. Every direction, repeats, the spelling, the whole catalogue. |
 | `tests/test_midi.lua` | The MIDI writer, read back by a parser that is not itself. |
-| `tests/test_place.lua` | Inserting, placing at the mouse, exporting and auditioning, against a mocked REAPER. |
+| `tests/test_place.lua` | Inserting, exporting and auditioning, against a mocked REAPER. |
 | `tests/test_ui.lua` | Runs the real script headlessly against a mocked ReaImGui, clicking every control in every panel. |
 
 This is the part that changed most when the plugin became a script. As a JSFX
 the engine was EEL2, which only runs inside REAPER, so what a converging
 arpeggio actually came out as could only be checked by reading it. In Lua it
-can be asked. `tests/test_engine.lua` is that question, 389 times.
+can be asked. `tests/test_engine.lua` is that question, 352 times.
 
 `tests/test_ui.lua` cannot tell you the window looks right. It can tell you
 that every panel draws, that no call reaches a ReaImGui function that does not
@@ -186,8 +165,6 @@ plugin built blocks and a bridge script put them in the project, the two of
 them talking over shared memory.
 
 None of that is needed here. A script has the API, so there is no bridge and no
-protocol to keep in step. It can ask what track the mouse is over and what time
-it is pointing at, which is better than dragging a file because it snaps and
-names the item. And the engine is ordinary Lua, so it can be tested.
+protocol to keep in step. And the engine is ordinary Lua, so it can be tested.
 
 The JSFX is in the history if you want it: `git log -- 'jsfx/Starting Blocks.jsfx'`.

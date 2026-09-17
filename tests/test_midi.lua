@@ -184,9 +184,9 @@ ok(#SB.sanitise(string.rep("x", 400)) <= 80, "names are cut to a sane length")
 ok(not SB.sanitise("../../etc/passwd"):find("/"), "no path separators survive")
 ok(not SB.sanitise("..\\..\\windows"):find("\\"), "nor backslashes")
 
--- A progression's name carries its numerals, which must survive intact.
-eq(SB.sanitise("C Major I-V-vi-IV Prog Triad"), "C Major I-V-vi-IV Prog Triad",
-   "a progression name needs no cleaning up")
+-- A block name that is already safe must come back untouched.
+eq(SB.sanitise("C Major viidim Arp maj7 Up 1-8 x4"),
+   "C Major viidim Arp maj7 Up 1-8 x4", "a clean name needs no cleaning up")
 
 ------------------------------------------------------------------------------
 -- Nothing to write

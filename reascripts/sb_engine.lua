@@ -12,7 +12,6 @@
 local M = {}
 
 M.MAX_NOTES = 1024
-M.MAX_PROG  = 12
 M.PPQ       = 960
 
 ------------------------------------------------------------------------------
@@ -205,12 +204,7 @@ M.RATE_MODS = {
 }
 
 M.DIRECTIONS = { "Up", "Down", "Up/Down", "Down/Up", "Random", "Converge", "Diverge" }
--- All six orderings of a triad. Anything above the triad follows in order.
-M.ORDERS = {
-  { name = "1-3-5", perm = {1,2,3} }, { name = "3-1-5", perm = {2,1,3} },
-  { name = "5-3-1", perm = {3,2,1} }, { name = "3-5-1", perm = {2,3,1} },
-  { name = "1-5-3", perm = {1,3,2} }, { name = "5-1-3", perm = {3,1,2} },
-}
+M.MAX_REPEATS = 16
 
 M.INTERVALS  = { "2nd", "3rd", "4th", "5th", "6th", "7th", "Octave" }
 M.SHAPES     = { "Single", "Return", "Fill" }
@@ -240,24 +234,7 @@ M.DRUM_PATTERNS = {
                                         2,2.25,2.5,2.75,3,3.25,3.5,3.75} },
 }
 
-M.PROGRESSIONS = {
-  { name = "I-V-vi-IV",    degrees = {0,4,5,3} },
-  { name = "I-vi-IV-V",    degrees = {0,5,3,4} },
-  { name = "ii-V-I",       degrees = {1,4,0} },
-  { name = "vi-IV-I-V",    degrees = {5,3,0,4} },
-  { name = "I-IV-V-I",     degrees = {0,3,4,0} },
-  { name = "I-vi-ii-V",    degrees = {0,5,1,4} },
-  { name = "i-VII-VI-VII", degrees = {0,6,5,6} },
-  { name = "Pachelbel",    degrees = {0,4,5,2,3,0,3,4} },
-  { name = "12-Bar Blues", degrees = {0,0,0,0,3,3,0,0,4,3,0,4} },
-}
-
-M.CATEGORIES = { "Chord", "Arpeggio", "Run", "Melody", "Bass", "Drums", "Progression" }
-
--- Blocks laid out across a progression rather than sitting on one degree.
--- Melody and drums are not among them on purpose: a step or a leap is a
--- smaller thing than a chord change, and a drum has no degree to follow.
-local CAN_FOLLOW = { Chord = true, Arpeggio = true, Run = true, Bass = true }
+M.CATEGORIES = { "Chord", "Arpeggio", "Run", "Melody", "Bass", "Drums" }
 
 ------------------------------------------------------------------------------
 -- Settings
@@ -272,18 +249,16 @@ function M.newState()
     cat = "Chord",
     family = 1, dia = 1, chord = 1,        -- family 1 is Diatonic
     inv = 0, oct = 0,
-    pattern = 1, patternIsOrder = false,   -- DIRECTIONS[1] or ORDERS[1]
+    pattern = 1,                           -- an index into DIRECTIONS
     runDir = 1,
     rate = 4, rateMod = 1,                 -- 1/8 straight
-    octaves = 1, bars = 1,
+    octaves = 1, repeats = 1, bars = 1,
     vel = 100, gate = 90,
     interval = 1, melDir = 1, shape = 1,   -- a step, up, on its own
     bassTone = 1, bassOct = -1,
     drumPiece = 1, drumPattern = 2,
     baseOct = 4,                           -- C4 is 60
     barBeats = 4,                          -- what the project says a bar is
-    prog = { degrees = {0,4,5,3}, len = 4, bars = 1, follow = false },
-    step = 1,                              -- the progression step being edited
   }
 end
 
@@ -376,24 +351,6 @@ function M.rateBeats(st)
   return M.RATES[st.rate].beats * M.RATE_MODS[st.rateMod].mul
 end
 
-function M.canFollow(cat) return CAN_FOLLOW[cat] == true end
-
--- The Progression tab always walks its steps - that is what it is. The others
--- do it when asked.
-function M.follows(st)
-  if st.cat == "Progression" then return true end
-  return st.prog.follow and st.prog.len > 1 and M.canFollow(st.cat)
-end
-
--- A progression written for seven degrees has to fold into a shorter scale
--- rather than running off the end of it into the octave above.
-function M.clampProgression(st)
-  local top = M.scaleLen(st) - 1
-  for i = 1, M.MAX_PROG do
-    st.prog.degrees[i] = math.max(0, math.min(st.prog.degrees[i] or 0, top))
-  end
-end
-
 -- Settings can arrive from a saved project written by an older version, or one
 -- whose tables were a different size. Every index here is used to look
 -- something up, so anything past the end of its table has to come back inside
@@ -412,15 +369,13 @@ function M.clampState(st)
   st.rate     = pin(st.rate, 1, #M.RATES, 4)
   st.rateMod  = pin(st.rateMod, 1, #M.RATE_MODS, 1)
   st.runDir   = pin(st.runDir, 1, #M.DIRECTIONS, 1)
-  st.pattern  = pin(st.pattern, 1,
-                    st.patternIsOrder and #M.ORDERS or #M.DIRECTIONS, 1)
+  st.pattern  = pin(st.pattern, 1, #M.DIRECTIONS, 1)
   st.interval = pin(st.interval, 1, #M.INTERVALS, 1)
   st.melDir   = pin(st.melDir, 1, 2, 1)
   st.shape    = pin(st.shape, 1, #M.SHAPES, 1)
   st.bassTone = pin(st.bassTone, 1, #M.BASS_TONES, 1)
   st.drumPiece   = pin(st.drumPiece, 1, #M.DRUM_PIECES, 1)
   st.drumPattern = pin(st.drumPattern, 1, #M.DRUM_PATTERNS, 1)
-  st.step     = pin(st.step, 1, M.MAX_PROG, 1)
 
   -- Ranges the sliders declare. A value outside one of these is what ReaImGui
   -- refuses, so they have to agree with the UI.
@@ -428,35 +383,19 @@ function M.clampState(st)
   st.oct      = pin(st.oct, -3, 3, 0)
   st.bassOct  = pin(st.bassOct, -3, 0, -1)
   st.octaves  = pin(st.octaves, 1, 4, 1)
+  st.repeats  = pin(st.repeats, 1, M.MAX_REPEATS, 1)
   st.vel      = pin(st.vel, 1, 127, 100)
   st.gate     = pin(st.gate, 5, 100, 90)
   st.baseOct  = pin(st.baseOct, 0, 8, 4)
   st.bars     = pin(st.bars, 1, 8, 1)
   if st.bars ~= 1 and st.bars ~= 2 and st.bars ~= 4 and st.bars ~= 8 then st.bars = 1 end
 
-  st.prog          = st.prog or {}
-  st.prog.degrees  = st.prog.degrees or {}
-  st.prog.len      = pin(st.prog.len, 1, M.MAX_PROG, 4)
-  st.prog.bars     = pin(st.prog.bars, 1, 4, 1)
-  if st.prog.bars == 3 then st.prog.bars = 4 end
-  st.prog.follow   = st.prog.follow == true
-  st.step          = math.min(st.step, st.prog.len)
-
   local found = false
   for _, c in ipairs(M.CATEGORIES) do if c == st.cat then found = true end end
   if not found then st.cat = M.CATEGORIES[1] end
 
   st.degree = pin(st.degree, 0, M.scaleLen(st) - 1, 0)
-  M.clampProgression(st)
   return st
-end
-
-function M.progressionText(st, sep, ascii)
-  local parts = {}
-  for i = 1, st.prog.len do
-    parts[i] = M.degreeNumeral(st, st.prog.degrees[i] or 0, ascii)
-  end
-  return table.concat(parts, sep or " - ")
 end
 
 function M.chordLabel(st)
@@ -467,18 +406,17 @@ end
 ------------------------------------------------------------------------------
 -- Generators
 --
--- Each one writes into a segment: c.notes is the block so far, c.ofs is where
--- in the block this piece starts, c.len is how long it should be, and c.degree
--- is the degree it is on. Following a progression is nothing more than calling
--- the same generator once per step with a different ofs and degree, which is
--- why none of them know progressions exist.
+-- Each one fills c.notes and says how long the block it made is, in c.len.
+-- The bar-based blocks - chord, bass, drums - are handed a length and fill it.
+-- The others decide their own: a melodic cell is as long as its notes, and an
+-- arpeggio or a run is as long as the number of repeats asks for.
 ------------------------------------------------------------------------------
 
 local function addNote(c, start, len, pitch, vel)
   if #c.notes >= M.MAX_NOTES then c.truncated = true; return end
   if pitch < 0 or pitch > 127 then return end
   c.notes[#c.notes + 1] = {
-    start = c.ofs + start,
+    start = start,
     len   = math.max(len, 0.015),
     pitch = math.floor(pitch),
     vel   = math.max(1, math.min(127, math.floor(vel))),
@@ -533,54 +471,57 @@ local function applyDirection(pool, dir)
 end
 M._applyDirection = applyDirection
 
--- Walks a sequence of pitches over the length of the segment, one per step.
-local function laySteps(st, c, seq)
+-- Plays a sequence through `count` times over, one pitch per step, and sizes
+-- the block to exactly that. Counting the notes rather than walking a clock
+-- keeps the last one from falling a rounding error short of the end.
+local function layRepeats(st, c, seq, repeats)
   if #seq == 0 then return end
-  local step = M.rateBeats(st)
-  local pos, idx = 0, 0
-  while pos < c.len - 1e-9 do
-    addNote(c, pos, math.min(step * st.gate / 100, c.len - pos),
-            seq[(idx % #seq) + 1], st.vel)
-    if c.truncated then return end
-    idx, pos = idx + 1, pos + step
+  local step  = M.rateBeats(st)
+  local count = repeats * #seq
+  for i = 0, count - 1 do
+    addNote(c, i * step, step * st.gate / 100, seq[(i % #seq) + 1], st.vel)
+    if c.truncated then break end
   end
+  c.len = count * step
+end
+
+-- How many notes a single pass of an arpeggio or a run comes to. Worth knowing
+-- on screen: it is what one repeat actually costs.
+function M.passLength(st)
+  if st.cat == "Arpeggio" then
+    local tones = M.chordTones(st, st.degree, st.inv)
+    if #tones == 0 then return 0 end
+    local pool = {}
+    for o = 0, st.octaves - 1 do
+      for _, p in ipairs(tones) do pool[#pool + 1] = p + o * 12 end
+    end
+    return #applyDirection(pool, st.pattern)
+  elseif st.cat == "Run" then
+    local n = M.scaleLen(st) * st.octaves + 1
+    local pool = {}
+    for i = 1, n do pool[i] = i end
+    return #applyDirection(pool, st.runDir)
+  end
+  return 0
 end
 
 local GEN = {}
 
 GEN.Chord = function(st, c)
   local len = c.len * st.gate / 100
-  for _, p in ipairs(M.chordTones(st, c.degree, st.inv)) do
+  for _, p in ipairs(M.chordTones(st, st.degree, st.inv)) do
     addNote(c, 0, len, p, st.vel)
   end
 end
 
 GEN.Arpeggio = function(st, c)
-  local tones = M.chordTones(st, c.degree, st.inv)
+  local tones = M.chordTones(st, st.degree, st.inv)
   if #tones == 0 then return end
-  local seq
-
-  if st.patternIsOrder then
-    -- A fixed shape: the lowest three voices in a set order, anything above
-    -- them in order after, and the whole cell climbing an octave at a time.
-    seq = {}
-    local perm = M.ORDERS[st.pattern].perm
-    for o = 0, st.octaves - 1 do
-      if #tones >= 3 then
-        for _, k in ipairs(perm) do seq[#seq + 1] = tones[k] + o * 12 end
-        for k = 4, #tones do seq[#seq + 1] = tones[k] + o * 12 end
-      else
-        for k = 1, #tones do seq[#seq + 1] = tones[k] + o * 12 end
-      end
-    end
-  else
-    local pool = {}
-    for o = 0, st.octaves - 1 do
-      for _, p in ipairs(tones) do pool[#pool + 1] = p + o * 12 end
-    end
-    seq = applyDirection(pool, st.pattern)
+  local pool = {}
+  for o = 0, st.octaves - 1 do
+    for _, p in ipairs(tones) do pool[#pool + 1] = p + o * 12 end
   end
-  laySteps(st, c, seq)
+  layRepeats(st, c, applyDirection(pool, st.pattern), st.repeats)
 end
 
 GEN.Run = function(st, c)
@@ -588,13 +529,12 @@ GEN.Run = function(st, c)
   -- Inclusive of the octave above, so a one-octave run lands back on the note
   -- it started from.
   for i = 0, M.scaleLen(st) * st.octaves do
-    pool[#pool + 1] = M.scalePitch(st, c.degree + i) + st.oct * 12
+    pool[#pool + 1] = M.scalePitch(st, st.degree + i) + st.oct * 12
   end
-  laySteps(st, c, applyDirection(pool, st.runDir))
+  layRepeats(st, c, applyDirection(pool, st.runDir), st.repeats)
 end
 
--- A melodic cell is however long its own notes make it, so it sizes the block
--- rather than being sized by it.
+-- A melodic cell is however long its own notes make it.
 function M.melodyBeats(st)
   local steps = (st.interval == 7) and M.scaleLen(st) or st.interval
   local n = (st.shape == 1 and 2) or (st.shape == 2 and 3) or (steps + 1)
@@ -608,8 +548,8 @@ GEN.Melody = function(st, c)
   local dir   = (st.melDir == 1) and 1 or -1
   local step  = M.rateBeats(st)
   local len   = step * st.gate / 100
-  local a = M.scalePitch(st, c.degree) + st.oct * 12
-  local b = M.scalePitch(st, c.degree + dir * steps) + st.oct * 12
+  local a = M.scalePitch(st, st.degree) + st.oct * 12
+  local b = M.scalePitch(st, st.degree + dir * steps) + st.oct * 12
 
   if st.shape == 1 then                      -- Single: the move
     addNote(c, 0, len, a, st.vel)
@@ -621,15 +561,16 @@ GEN.Melody = function(st, c)
   else                                       -- Fill: every note in between
     for i = 0, steps do
       addNote(c, i * step, len,
-              M.scalePitch(st, c.degree + dir * i) + st.oct * 12, st.vel)
+              M.scalePitch(st, st.degree + dir * i) + st.oct * 12, st.vel)
     end
   end
+  c.len = M.melodyBeats(st)
 end
 
 GEN.Bass = function(st, c)
   -- The bass reads the chord as it is stacked, so inversion is ignored: voice
   -- 1 is the root, 2 the third, 3 the fifth, 4 the seventh.
-  local tones = M.chordTones(st, c.degree, 0)
+  local tones = M.chordTones(st, st.degree, 0)
   if #tones == 0 then return end
   local pitch = tones[math.min(st.bassTone, #tones)] + st.bassOct * 12
   local step  = M.rateBeats(st)
@@ -660,22 +601,18 @@ end
 function M.blockName(st)
   local root  = M.ROOTS[st.root].name
   local scale = M.SCALES[st.scale].name
-  local where = M.follows(st) and M.progressionText(st, "-", true)
-                              or M.degreeNumeral(st, st.degree, true)
+  local where = M.degreeNumeral(st, st.degree, true)
   local rate  = M.RATES[st.rate].name
-  local pat   = st.patternIsOrder and M.ORDERS[st.pattern].name
-                                   or M.DIRECTIONS[st.pattern]
+  local times = st.repeats > 1 and (" x" .. st.repeats) or ""
 
-  if st.cat == "Progression" then
-    return ("%s %s Prog %s %s"):format(root, scale, where, M.chordLabel(st))
-  elseif st.cat == "Chord" then
+  if st.cat == "Chord" then
     return ("%s %s %s Chord %s"):format(root, scale, where, M.chordLabel(st))
   elseif st.cat == "Arpeggio" then
-    return ("%s %s %s Arp %s %s %s"):format(root, scale, where,
-                                            M.chordLabel(st), pat, rate)
+    return ("%s %s %s Arp %s %s %s%s"):format(root, scale, where,
+      M.chordLabel(st), M.DIRECTIONS[st.pattern], rate, times)
   elseif st.cat == "Run" then
-    return ("%s %s %s Run %s %s"):format(root, scale, where,
-                                         M.DIRECTIONS[st.runDir], rate)
+    return ("%s %s %s Run %s %s%s"):format(root, scale, where,
+      M.DIRECTIONS[st.runDir], rate, times)
   elseif st.cat == "Melody" then
     return ("%s %s %s Melody %s %s %s"):format(root, scale, where,
       (st.melDir == 1) and "Up" or "Down",
@@ -691,29 +628,12 @@ end
 -- The whole point of the file. Returns the notes in quarter notes from the
 -- start of the block, how long the block is, and what it is called.
 function M.generate(st)
-  local c = { notes = {}, ofs = 0, len = 0, degree = st.degree, truncated = false }
-  -- A progression's own output is the chord on each of its steps.
-  local gen = GEN[st.cat == "Progression" and "Chord" or st.cat]
-  local beats
-
-  if M.follows(st) then
-    local seg = st.prog.bars * st.barBeats
-    beats = st.prog.len * seg
-    c.len = seg
-    for i = 1, st.prog.len do
-      c.degree = st.prog.degrees[i] or 0
-      c.ofs    = (i - 1) * seg
-      gen(st, c)
-    end
-  else
-    c.len = (st.cat == "Melody") and M.melodyBeats(st) or (st.barBeats * st.bars)
-    beats = c.len
-    gen(st, c)
-  end
-
+  -- The length a bar-based block fills. A self-sizing one replaces it.
+  local c = { notes = {}, len = st.barBeats * st.bars, truncated = false }
+  ;(GEN[st.cat] or GEN.Chord)(st, c)
   return {
     notes     = c.notes,
-    beats     = beats,
+    beats     = math.max(c.len, 0.0625),
     name      = M.blockName(st),
     truncated = c.truncated,
   }

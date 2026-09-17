@@ -183,13 +183,9 @@ reaper = {
   GetCursorPosition = function() return 0 end,
   TimeMap2_timeToQN = function(_, t) return t * 2 end,
   TimeMap2_QNToTime = function(_, qn) return qn / 2 end,
-  SnapToGrid = function(_, t) return math.floor(t * 2 + 0.5) / 2 end,
 
   GetSelectedTrack = function() return "track1" end,
   GetLastTouchedTrack = function() return nil end,
-  GetMousePosition = function() return 400, 300 end,
-  GetTrackFromPoint = function() return "trackUnderMouse" end,
-  GetSet_ArrangeView2 = function() return 3.25, 3.30 end,
 
   CreateNewMIDIItemInProj = function(track, a, b)
     local item = { track = track, pos = a, fin = b, take = { notes = {} } }
@@ -378,7 +374,6 @@ do
   local blob = extstate["StartingBlocks:state"]
   ok(blob and blob ~= "", "closing saves the settings")
   ok(blob:match("cat=Drums"), "including which block was on screen")
-  ok(blob:match("prog=[%d,]+"), "and the progression")
 
   -- Saving one thing and loading another is the classic way for settings to
   -- rot, so load the script again on top of what it just wrote and check it
@@ -406,11 +401,9 @@ do
   local junk = {
     "root=99", "scale=99", "family=99", "chord=999", "dia=99", "rate=99",
     "rateMod=99", "runDir=99", "pattern=99", "interval=99", "melDir=9",
-    "shape=99", "bassTone=99", "drumPiece=99", "drumPattern=99", "step=99",
+    "shape=99", "bassTone=99", "drumPiece=99", "drumPattern=99",
     "inv=99", "oct=99", "bassOct=-99", "octaves=99", "vel=999", "gate=999",
-    "baseOct=99", "bars=99", "degree=99", "cat=Sousaphone",
-    "patternIsOrder=1", "progLen=99", "progBars=99", "progFollow=1",
-    "prog=99,99,99,99,99,99,99,99,99,99,99,99",
+    "baseOct=99", "bars=99", "repeats=99", "degree=99", "cat=Sousaphone",
   }
   extstate["StartingBlocks:state"] = table.concat(junk, ";")
 
@@ -428,7 +421,7 @@ do
   end
 
   -- Negative and empty are their own kind of nonsense.
-  extstate["StartingBlocks:state"] = "root=-5;scale=0;degree=-3;vel=-1;prog=;progLen=0"
+  extstate["StartingBlocks:state"] = "root=-5;scale=0;degree=-3;vel=-1;repeats=0"
   deferred = nil
   ok(pcall(dofile, SCRIPT), "negative and empty settings load")
   ok(frame(), "and draw")

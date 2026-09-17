@@ -65,10 +65,7 @@ Tone** only when it really is a semitone below the tonic; otherwise it is a
 
 ## Blocks
 
-**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**, **Progression**.
-
-The first six are single pieces. The seventh, **Progression**, is the one
-that links them together.
+**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**.
 
 ### Chords
 
@@ -207,28 +204,28 @@ octaves either way.
 
 ### Arpeggios
 
-The chord from the Chord tab, one note at a time. Two ways to order it, and
-you pick one or the other.
+The chord from the Chord tab, one note at a time.
 
-**Directions** lay every chord tone across the octave span out in pitch
-order and then walk them: Up, Down, Up/Down, Down/Up, Random, Converge, Diverge.
+**Direction** lays every chord tone across the octave span out in pitch
+order and then walks them: Up, Down, Up/Down, Down/Up, Random, Converge, Diverge.
 
 `Random` is a shuffle rather than free picks, so every tone gets its turn
 before any of them repeats. `Converge` works inwards from the outside,
 `Diverge` outwards from the middle.
 
-**Fixed orders** put the lowest three voices in a set order. Anything above
-them - a seventh, a ninth, an eleventh, a thirteenth - follows in order, and
-the whole cell climbs an octave at a time:
-
-`1-3-5`, `3-1-5`, `5-3-1`, `3-5-1`, `1-5-3`, `5-1-3`.
+**Repeats** is how many times the pass plays, from 1 to 16. One pass
+is one time through whatever the direction produced, so an arpeggio block is
+as long as the arpeggio and no longer - a triad up is three notes, a
+thirteenth up is seven, and the same Repeats setting gives you one of each
+rather than a bar of each.
 
 ### Runs
 
 The same seven directions, but over the scale rather than the chord,
 starting on the degree you chose and running up to four octaves. A
 one-octave run is inclusive of the octave above, so it lands back on the
-note it started from.
+note it started from, and **Repeats** counts passes the same way it does for
+an arpeggio.
 
 ### Melody
 
@@ -294,37 +291,6 @@ pads in anything that follows the map.
 These are written on a 4/4 grid. In a shorter bar the hits past the end of
 it are dropped rather than squeezed in.
 
-### Progressions
-
-A progression is a sequence of scale degrees - up to 12 of
-them, each lasting one, two or four bars. It is the one block made of other
-blocks, and the only one that changes what the rest of them do.
-
-On its own tab it plays the chord on each step. The switch that matters is
-**Follow progression**, on the Chord, Arpeggio, Run and Bass panels: with it
-on, that block is laid out across the whole progression instead of sitting
-on one degree, so an arpeggio follows the changes rather than repeating.
-Melody and drums do not offer it - a step or a leap is a smaller thing than
-a chord change, and a drum has no degree to follow.
-
-| preset | degrees |
-| --- | --- |
-| I-V-vi-IV | 1 5 6 4 |
-| I-vi-IV-V | 1 6 4 5 |
-| ii-V-I | 2 5 1 |
-| vi-IV-I-V | 6 4 1 5 |
-| I-IV-V-I | 1 4 5 1 |
-| I-vi-ii-V | 1 6 2 5 |
-| i-VII-VI-VII | 1 7 6 7 |
-| Pachelbel | 1 5 6 3 4 1 4 5 |
-| 12-Bar Blues | 1 1 1 1 4 4 1 1 5 4 1 5 |
-
-Degrees are numbered from 1 here for reading; the numerals on screen are
-cased for the scale you are in, so `I-V-vi-IV` in C major shows as
-`I - V - vi - IV` and the same preset in A minor shows as `i - v - VI - iv`.
-A progression written for seven degrees folds into a shorter scale rather
-than running off the end of it.
-
 ## Timing
 
 | rate | 1/64 | 1/32 | 1/16 | 1/8 | 1/4 | 1/2 | 1/1 |
@@ -334,5 +300,8 @@ than running off the end of it.
 Each one can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a half.
 
 **Gate** is how much of the step the note actually holds, from 5% to 100%.
-**Bars** is 1, 2, 4 or 8, and a bar is however long the project's time
-signature says it is.
+
+Chords, bass and drums are measured in **bars** - 1, 2, 4 or 8, and a bar is
+however long the project's time signature says it is. Arpeggios and runs are
+measured in **repeats** instead, and a melody is however long its own notes
+make it.
