@@ -37,6 +37,8 @@ local ext, gmem, deferred = {}, {}, nil
 local console, inserted, items = {}, {}, {}
 local tmpdir = os.getenv("SB_TMPDIR") or "/tmp/starting-blocks-test"
 local cursorPos, selectedTrack, tempo = 0, "track1", 120
+local tsNum, tsDen = 3, 4
+local tracks = { [0] = "track0", [1] = "track1", [2] = "track2" }
 
 os.execute('rm -rf "' .. tmpdir .. '" && mkdir -p "' .. tmpdir .. '"')
 
@@ -64,13 +66,17 @@ reaper = {
 
   -- 120bpm, so one quarter note is half a second.
   Master_GetTempo = function() return tempo end,
-  TimeMap_GetTimeSigAtTime = function() return 0, 4, 4 end,
+  -- Three values, numerator first. The bridge used to read these as though a
+  -- retval came first, and because this mock had the same shape it agreed with
+  -- the bug; the real signature is num, denom, tempo.
+  TimeMap_GetTimeSigAtTime = function() return tsNum, tsDen, tempo end,
   TimeMap2_timeToQN = function(_, t) return t * (tempo / 60) end,
   TimeMap2_QNToTime = function(_, qn) return qn / (tempo / 60) end,
 
   GetCursorPosition   = function() return cursorPos end,
   GetSelectedTrack    = function() return selectedTrack end,
   GetLastTouchedTrack = function() return nil end,
+  GetTrack            = function(_, idx) return tracks[idx] end,
   CreateNewMIDIItemInProj = function(track, a, b)
     local item = { track = track, pos = a, fin = b, take = { notes = {} } }
     items[#items + 1] = item
@@ -100,7 +106,7 @@ assert(load(src .. [[
 _G.__SB = { buildMidi = buildMidi, sanitise = sanitise, varlen = varlen,
             readBlock = readBlock, insertBlock = insertBlock,
             exportBlock = exportBlock, uniquePath = uniquePath,
-            binPath = binPath, GM = GM }
+            binPath = binPath, GM = GM, targetTrack = targetTrack }
 ]], "@" .. SCRIPT))()
 
 local SB = assert(_G.__SB, "could not reach the bridge's internals")
@@ -312,15 +318,49 @@ eq(inserted[1].ep, (4 + 3.6) * 960, "and end where the block says")
 eq(inserted[1].pitch, 60, "pitch survives the trip")
 eq(inserted[1].vel, 100, "velocity survives the trip")
 
+-- With nothing selected the plugin's own track is the fallback: the JSFX puts
+-- its track index in gmem with get_host_placement.
 selectedTrack = nil
-eq(SB.insertBlock(n2, b2, name2), 2, "with no track, insert says so rather than failing quietly")
+gmem[GM.TRACK], gmem[GM.HFLAGS] = 2, 0
+inserted, items = {}, {}
+eq(SB.insertBlock(n2, b2, name2), 0, "with nothing selected the block still lands")
+eq(items[1].track, "track2", "on the track the plugin is sitting on")
+
+-- A take FX has a track index too, but inserting onto it is not what it means,
+-- so that route is refused rather than guessed at.
+gmem[GM.TRACK], gmem[GM.HFLAGS] = 2, 1
+eq(SB.insertBlock(n2, b2, name2), 2, "a take FX does not claim a track")
+
+gmem[GM.TRACK], gmem[GM.HFLAGS] = -1, 0
+eq(SB.insertBlock(n2, b2, name2), 2, "with no track anywhere, insert says so rather than failing quietly")
+
+-- A selected track always wins over the plugin's own.
 selectedTrack = "track1"
+gmem[GM.TRACK], gmem[GM.HFLAGS] = 2, 0
+inserted, items = {}, {}
+eq(SB.insertBlock(n2, b2, name2), 0, "a selected track is still used")
+eq(items[1].track, "track1", "and it wins over the plugin's own track")
 
 ------------------------------------------------------------------------------
 -- Exporting
 ------------------------------------------------------------------------------
 
 eq(SB.exportBlock(chord, 4, "C Major I Chord Triad"), 1, "export reports success")
+
+-- The project is in 3/4 here, so that is what the file must say. Reading the
+-- three return values of TimeMap_GetTimeSigAtTime as though a retval came
+-- first put the denominator in the numerator and silently wrote 4/2.
+do
+  local f3 = assert(io.open(SB.binPath() .. "/C Major I Chord Triad.mid", "rb"))
+  local written = parseMidi(f3:read("a"))
+  f3:close()
+  for _, meta in ipairs(written.metas) do
+    if meta.type == 0x58 then
+      eq(meta.data:byte(1), 3, "the exported file carries the project's numerator")
+      eq(meta.data:byte(2), 2, "and its denominator, as a power of two")
+    end
+  end
+end
 local first = SB.binPath() .. "/C Major I Chord Triad.mid"
 local f = io.open(first, "rb")
 ok(f ~= nil, "the file is on disk")

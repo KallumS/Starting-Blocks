@@ -22,9 +22,29 @@ rediscovered and "fixed":
 - JSFX has **no file write**. `file_open` reads.
 - JSFX has **no access to the REAPER API**. It cannot make an item.
 - JSFX has **no drag-out**. `gfx_getdropfile` is for files dropped *in*.
-- EEL2 has no `if`/`else`, only `cond ? ( ... ) : ( ... )`. **Always
-  parenthesise a branch that assigns.** `a ? b = 1;` is not reliably parsed;
-  `a ? ( b = 1; );` is. `tools/check_jsfx.py` does not catch this - grep for it.
+- JSFX **can** insert media into a project, but only audio:
+  `export_buffer_to_project()` writes an audio file. There is no MIDI
+  equivalent, so it is no use here.
+- EEL2 has no `if`/`else`, only `cond ? ... : ...`. An assignment is a perfectly
+  good branch - the reference documents `a < 5 ? b = 6 : c = 7;` - so the
+  parentheses this file used to insist on are a style, not a fix. The style is
+  worth keeping for anything longer than one assignment.
+- Functions may take up to 40 parameters, and functions defined in `@init` are
+  visible from every other section. Ones defined in `@gfx` are not.
+- `tempo`, `ts_num`, `ts_denom`, `play_state` and `beat_position` exist **only
+  in `@block` and `@sample`**. `@gfx` cannot read them, which is why `@block`
+  caches them into `cur_tempo` and `bar_beats`.
+- `get_host_placement()` gives the track index the plugin sits on (REAPER
+  6.74+). That is how Insert has a target when no track is selected.
+
+## The bridge
+
+Lua multiple returns are the trap. `TimeMap_GetTimeSigAtTime` returns
+`num, denom, tempo` - there is no `retval` in front of it, and reading one
+there silently wrote 4/2 into every exported file for a while. Check the
+signature in the API docs before destructuring anything, and make the mock in
+`tests/test_bridge.lua` match the real signature rather than the code's
+assumption about it - a mock that agrees with the bug tests nothing.
 
 ## State
 
@@ -36,7 +56,8 @@ needs handling.
 ## Tables
 
 `CH_MASK[i]` is a 32-bit interval mask, one bit per semitone above the root, so
-a chord is one number. It is parallel to `#chord_names` and `#chord_syms`, which
+a chord is one number. `cm()` takes seven slots, so seven notes is the ceiling
+and 31 semitones the reach. It is parallel to `#chord_names` and `#chord_syms`, which
 are `|` separated strings indexed at init. **Three places to edit for one
 chord.** `data_ok` catches a length mismatch at runtime and
 `tests/test_jsfx_data.py` catches a content mismatch before that.
@@ -45,6 +66,10 @@ Scales and roots are copied from ScaleView for REAPER and the test asserts they
 still match it. Do not "tidy" them independently.
 
 ## Memory
+
+The local address space is about 8 million words and `gmem` under a named
+`options:gmem=` is 8 million too, so there is no pressure here - the whole map
+fits under 8000.
 
 `@init` lays out one flat `mem` by hand, as named offsets at the top of the
 file. The test checks the regions do not run into each other, but it only knows

@@ -113,6 +113,8 @@ they fit the key. Semitones are from the chord's root.
 | `7#5` | Augmented Seventh | 0 4 8 10 | 1 3 #5 b7 |
 | `maj7#5` | Augmented Major Seventh | 0 4 8 11 | 1 3 #5 7 |
 | `7b5` | Seventh Flat Five | 0 4 6 10 | 1 3 b5 b7 |
+| `dimMaj7` | Diminished Major Seventh | 0 3 6 11 | 1 b3 b5 7 |
+| `7/6` | Seven Six | 0 4 7 9 10 | 1 3 5 13 b7 |
 
 #### Extended
 
@@ -144,6 +146,11 @@ they fit the key. Semitones are from the chord's root.
 | `13b9` | Thirteenth Flat Nine | 0 4 7 10 13 21 | 1 3 5 b7 b9 13 |
 | `maj7#11` | Major Seventh Sharp Eleven | 0 4 7 11 18 | 1 3 5 7 #11 |
 | `m9b5` | Minor Ninth Flat Five | 0 3 6 10 14 | 1 b3 b5 b7 9 |
+| `9#5` | Ninth Augmented Fifth | 0 4 8 10 14 | 1 3 #5 b7 9 |
+| `9b5` | Ninth Flat Fifth | 0 4 6 10 14 | 1 3 b5 b7 9 |
+| `9#11` | Augmented Eleventh | 0 4 7 10 14 18 | 1 3 5 b7 9 #11 |
+| `maj7#5#11` | Augmented Major Seventh Sharp Eleven | 0 4 8 11 18 | 1 3 #5 7 #11 |
+| `13b9b5` | Thirteenth Flat Nine Flat Five | 0 4 6 10 13 21 | 1 3 b5 b7 b9 13 |
 
 #### Sus & Add
 
@@ -159,6 +166,8 @@ they fit the key. Semitones are from the chord's root.
 | `add4` | Added Fourth | 0 4 5 7 | 1 3 11 5 |
 | `add11` | Added Eleventh | 0 4 7 17 | 1 3 5 11 |
 | `add13` | Added Thirteenth | 0 4 7 21 | 1 3 5 13 |
+| `add2` | Added Second | 0 2 4 7 | 1 9 3 5 |
+| `m(add2)` | Minor Added Second | 0 2 3 7 | 1 9 b3 5 |
 
 #### Quartal
 
@@ -185,6 +194,9 @@ they fit the key. Semitones are from the chord's root.
 | `It+6` | Italian Sixth | 0 4 10 |
 | `Fr+6` | French Sixth | 0 4 6 10 |
 | `Ger+6` | German Sixth | 0 4 7 10 |
+| `Elektra` | Elektra | 0 7 9 13 16 |
+| `Farben` | Farben | 0 8 11 16 21 |
+| `Vienna II` | Viennese Trichord II | 0 6 7 |
 
 Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three
 octaves either way.

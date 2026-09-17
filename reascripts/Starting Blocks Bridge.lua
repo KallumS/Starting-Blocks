@@ -27,7 +27,8 @@ local PPQ     = 960
 -- gmem layout, shared with jsfx/Starting Blocks.jsfx. Keep the two in step.
 local GM = {
   MAGIC = 0, SEQ = 1, CMD = 2, ACK = 3, STATUS = 4, NCOUNT = 5,
-  BEATS = 6, HB = 7, NAMELEN = 8, NAME = 16, NOTES = 128,
+  BEATS = 6, HB = 7, NAMELEN = 8, TRACK = 9, HFLAGS = 10,
+  NAME = 16, NOTES = 128,
 }
 
 -- What the plugin shows for each status it reads back.
@@ -191,8 +192,28 @@ end
 -- The two things the plugin can ask for
 ------------------------------------------------------------------------------
 
+-- Where the block lands. A selected track wins, because that is the one the
+-- user is pointing at. Failing that, the plugin tells us over gmem which track
+-- it is sitting on, which is almost always the one they meant anyway - and it
+-- is the difference between Insert working and Insert saying "no track".
+local function targetTrack()
+  local track = reaper.GetSelectedTrack(0, 0)
+  if track then return track end
+
+  local idx    = math.floor(reaper.gmem_read(GM.TRACK) or -1)
+  local flags  = math.floor(reaper.gmem_read(GM.HFLAGS) or 0)
+  local isTake = flags % 2 == 1
+  if idx >= 0 and not isTake then
+    -- get_host_placement counts tracks from zero, the same way GetTrack does.
+    track = reaper.GetTrack(0, idx)
+    if track then return track end
+  end
+
+  return reaper.GetLastTouchedTrack()
+end
+
 local function insertBlock(notes, beats, name)
-  local track = reaper.GetSelectedTrack(0, 0) or reaper.GetLastTouchedTrack()
+  local track = targetTrack()
   if not track then return NO_TRACK end
 
   local pos     = reaper.GetCursorPosition()
@@ -227,8 +248,10 @@ local function exportBlock(notes, beats, name)
   if not path then return WRITE_FAILED end
 
   local bpm, tsNum, tsDen = reaper.Master_GetTempo(), 4, 4
-  local _, num, den = reaper.TimeMap_GetTimeSigAtTime(0, reaper.GetCursorPosition())
-  if num and num > 0 then tsNum, tsDen = num, den end
+  -- Three return values, and the first of them is the numerator: there is no
+  -- retval in front of it.
+  local num, den = reaper.TimeMap_GetTimeSigAtTime(0, reaper.GetCursorPosition())
+  if num and num > 0 and den and den > 0 then tsNum, tsDen = num, den end
 
   local f = io.open(path, "wb")
   if not f then return WRITE_FAILED end

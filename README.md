@@ -20,6 +20,8 @@ notes. F# major spells its seventh E#, here as there.
 
 ## Installing
 
+Needs REAPER 6.74 or newer, for `get_host_placement()`.
+
 1. Put `Starting Blocks.jsfx` in `<REAPER resource path>/Effects/`.
    Actions → Show REAPER resource path will find it.
 2. Put `Starting Blocks Bridge.lua` in `<REAPER resource path>/Scripts/` and
@@ -50,7 +52,9 @@ Three ways, and they are all the same block:
   Nothing else in the plugin makes a sound, so whatever is after it on the
   track is what you hear. With a track record-armed you can record it.
 - **Insert at cursor** puts it on the selected track at the edit cursor, as one
-  MIDI item named after the block. One undo point.
+  MIDI item named after the block. One undo point. With nothing selected it
+  falls back to the track the plugin itself is on, which the JSFX finds with
+  `get_host_placement()` and passes over.
 - **Export .mid** writes it into `<REAPER resource path>/Starting Blocks/`.
   Point the Media Explorer at that folder once and from then on every block you
   export is one drag away from the arrange.
@@ -94,14 +98,29 @@ reading, not by a test here.
 
 `docs/BLOCKS.md` has the whole thing. Two things worth saying here:
 
-The chord families follow
-[Wikipedia's list of chords](https://en.wikipedia.org/wiki/List_of_chords).
-The systematic part of that list - triads, sixths, sevenths, ninths,
-elevenths, thirteenths, the altered dominants, the suspended and added chords,
-quartal and quintal stacks - is complete. The named chords at the end of it are
-a selection: the ones included are the ones whose exact pitch content is not in
-dispute. Elektra, Farben, the Magic chord, Northern Lights, Psalms and Tathata
-are left out for now rather than guessed at.
+The 78 chords follow
+[Wikipedia's list of chords](https://en.wikipedia.org/wiki/List_of_chords),
+checked against that page's pitch-class column. Two of its entries are not
+here:
+
+- The **Magic chord**'s cell runs two voicings together with no separator, so
+  there is no reading of it that is not a guess.
+- The **Northern lights chord** is eleven notes spread over three octaves. A
+  chord here is a 32-bit interval mask fed by seven slots, so it does not fit.
+
+Most of what looks missing from that page is not a chord shape at all. Tonic,
+Supertonic, Mediant, Subdominant, Dominant, Submediant, Subtonic, the parallels
+and counter-parallels, Secondary dominant, Secondary leading-tone, Leading-tone
+triad, Psalms - all of those are one of three or four triads under a name that
+says **which degree of the key it is built on**. That is the other axis of this
+plugin, not a row in its chord table: pick the degree, and the Diatonic family
+gives you the chord that degree actually carries.
+
+Two named chords are voiced rather than reduced. The list gives the **Tristan
+chord** as the pitch-class set `0 3 6 t`, which makes it a half-diminished
+seventh and indistinguishable from one; here it is `0 6 10 15`, F-B-D#-G# as it
+stands in the prelude. **Petrushka** is the same pitch classes as the list's
+`0 1 4 6 7 t`, stacked as the two triads it is made of.
 
 Drum patterns are written on a 4/4 grid. In another time signature the hits
 past the end of the bar are dropped rather than squeezed in.

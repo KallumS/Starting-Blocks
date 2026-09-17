@@ -162,6 +162,8 @@ EXPECTED_CHORDS = [
     ("Augmented Seventh",             "7#5",       [0,4,8,10],           SEVENTHS),
     ("Augmented Major Seventh",       "maj7#5",    [0,4,8,11],           SEVENTHS),
     ("Seventh Flat Five",             "7b5",       [0,4,6,10],           SEVENTHS),
+    ("Diminished Major Seventh",      "dimMaj7",   [0,3,6,11],           SEVENTHS),
+    ("Seven Six",                     "7/6",       [0,4,7,9,10],         SEVENTHS),
 
     ("Ninth",                         "9",         [0,4,7,10,14],        EXTENDED),
     ("Major Ninth",                   "maj9",      [0,4,7,11,14],        EXTENDED),
@@ -185,6 +187,11 @@ EXPECTED_CHORDS = [
     ("Thirteenth Flat Nine",          "13b9",      [0,4,7,10,13,21],     ALTERED),
     ("Major Seventh Sharp Eleven",    "maj7#11",   [0,4,7,11,18],        ALTERED),
     ("Minor Ninth Flat Five",         "m9b5",      [0,3,6,10,14],        ALTERED),
+    ("Ninth Augmented Fifth",         "9#5",       [0,4,8,10,14],        ALTERED),
+    ("Ninth Flat Fifth",              "9b5",       [0,4,6,10,14],        ALTERED),
+    ("Augmented Eleventh",            "9#11",      [0,4,7,10,14,18],     ALTERED),
+    ("Augmented Major Seventh Sharp Eleven", "maj7#5#11", [0,4,8,11,18], ALTERED),
+    ("Thirteenth Flat Nine Flat Five","13b9b5",    [0,4,6,10,13,21],     ALTERED),
 
     ("Suspended Second",              "sus2",      [0,2,7],              SUSADD),
     ("Suspended Fourth",              "sus4",      [0,5,7],              SUSADD),
@@ -196,6 +203,8 @@ EXPECTED_CHORDS = [
     ("Added Fourth",                  "add4",      [0,4,5,7],            SUSADD),
     ("Added Eleventh",                "add11",     [0,4,7,17],           SUSADD),
     ("Added Thirteenth",              "add13",     [0,4,7,21],           SUSADD),
+    ("Added Second",                  "add2",      [0,2,4,7],            SUSADD),
+    ("Minor Added Second",            "m(add2)",   [0,2,3,7],            SUSADD),
 
     ("Quartal Triad",                 "Q4/3",      [0,5,10],             QUARTAL),
     ("Quartal Tetrad",                "Q4/4",      [0,5,10,15],          QUARTAL),
@@ -218,6 +227,12 @@ EXPECTED_CHORDS = [
     ("Italian Sixth",                 "It+6",      [0,4,10],             NAMED),
     ("French Sixth",                  "Fr+6",      [0,4,6,10],           NAMED),
     ("German Sixth",                  "Ger+6",     [0,4,7,10],           NAMED),
+    # Strauss's, as the list voices it: 0 7 9 1 4 read upward.
+    ("Elektra",                       "Elektra",   [0,7,9,13,16],        NAMED),
+    # Schoenberg Op. 16 no. 3, likewise: 0 8 e 4 9.
+    ("Farben",                        "Farben",    [0,8,11,16,21],       NAMED),
+    # The list gives the Viennese trichord in two forms; this is the second.
+    ("Viennese Trichord II",          "Vienna II", [0,6,7],              NAMED),
 ]
 
 eq(len(chord_masks), len(EXPECTED_CHORDS), "every chord in the table is accounted for")
@@ -250,6 +265,14 @@ for fam, entries in by_family.items():
             failures.append(f"family {fam}: {name} duplicates {seen[ivs]}")
         seen[ivs] = name
 check(sorted(by_family) == [1, 2, 3, 4, 5, 6, 7], "every family from 1 to 7 has chords")
+
+# The chord grid is eight buttons wide and has room for three rows before it
+# would run into the parameter strip below it.
+PER_ROW, ROWS = 8, 3
+for fam, entries in sorted(by_family.items()):
+    check(len(entries) <= PER_ROW * ROWS,
+          f"family {fam_names[fam]} has {len(entries)} chords, the grid holds "
+          f"{PER_ROW * ROWS}")
 
 
 # -- diatonic stacks ---------------------------------------------------------
