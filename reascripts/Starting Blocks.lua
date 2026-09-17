@@ -46,22 +46,24 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
-local ACCENT      = 0x3A7FE6FF
-local ACCENT_HOV  = 0x4E90F0FF
-local ACCENT_ACT  = 0x2E6FD0FF
-local NOTE_COL    = 0x57C78CFF
-local ROLL_BG     = 0x15181CFF
-local ROLL_BAR    = 0x3D434EFF
-local ROLL_BEAT   = 0x262A31FF
-local PLAYHEAD    = 0xF2CC4DFF
-local DIM         = 0x8A909CFF
-local WARN        = 0xE09A5AFF
+local WINDOW_BG   = 0x39414AFF   -- steel grey
+local ACCENT      = 0xE08A2EFF   -- orange, for whatever is chosen
+local ACCENT_HOV  = 0xF09B40FF
+local ACCENT_ACT  = 0xC4741EFF
+-- White on orange is a poor read, so a chosen button takes dark text instead.
+local ACCENT_TEXT = 0x1E2226FF
+local NOTE_COL    = 0x6FD49AFF
+local ROLL_BG     = 0x262C33FF   -- inset, darker than the window behind it
+local ROLL_BAR    = 0x4E5761FF
+local ROLL_BEAT   = 0x333A42FF
+local PLAYHEAD    = 0xFFD966FF
+local DIM         = 0xB0B9C4FF   -- light enough to read on steel
+local WARN        = 0xE8705AFF   -- red, so it is not mistaken for the accent
 
 -- ReaImGui patches Dear ImGui so a top-level window can carry its own
--- background alpha and round its own corners, which a plain Dear ImGui window
--- cannot. SetNextWindowBgAlpha(1) makes the background solid without having an
--- opinion about its colour, so the window still follows whatever theme is set.
-local WINDOW_ROUNDING = 10
+-- background alpha, which a plain Dear ImGui window cannot. The same patch
+-- covers corner rounding, but rounding the window did not show on screen, so
+-- it is not here: an outer radius is the host window's to draw, not ours.
 
 ------------------------------------------------------------------------------
 -- State
@@ -133,9 +135,10 @@ local function pick(label, selected, width)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button, ACCENT)
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, ACCENT_HOV)
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, ACCENT_ACT)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
   end
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  if selected then ImGui.PopStyleColor(ctx, 3) end
+  if selected then ImGui.PopStyleColor(ctx, 4) end
   return hit
 end
 
@@ -247,26 +250,49 @@ local function rateRow()
   modRow()
 end
 
-local function barsRow()
-  dim("Bars")
-  for i, n in ipairs({1, 2, 4, 8}) do
+local function barsButtons()
+  for i, b in ipairs(E.BAR_LENGTHS) do
     if i > 1 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "bars" .. i)
-    if pick(tostring(n), st.bars == n, 40) then st.bars = n; touched() end
+    if pick(b.name, math.abs(st.bars - b.bars) < 1e-9, 44) then
+      st.bars = b.bars
+      touched()
+    end
     ImGui.PopID(ctx)
   end
 end
 
--- How many times the pass plays. Says what a pass costs, because the answer
--- moves with the chord: a triad is three notes, a thirteenth is seven.
-local function repeatsRow()
+local function barsRow()
+  dim("Bars")
+  barsButtons()
+end
+
+-- An arpeggio or a run is measured either by how many passes it plays or by a
+-- length it fills, and which one is the user's to choose. Both say what a pass
+-- costs, because the answer moves with the chord: a triad is three notes, a
+-- thirteenth is seven.
+local function lengthRow()
   local pass = E.passLength(st)
-  local c, v = slider("repeats", "Repeats", st.repeats, 1, E.MAX_REPEATS, 150)
-  if c then st.repeats = v; touched() end
-  tip(("One pass is %d note%s, so this block is %d."):format(
-      pass, pass == 1 and "" or "s", pass * st.repeats))
-  ImGui.SameLine(ctx, 0, 14)
-  dim(("%d notes a pass"):format(pass))
+  dim("Length")
+
+  local cur = 1
+  for i, m in ipairs(E.LENGTH_MODES) do if m == st.lengthMode then cur = i end end
+  local m = chooser("lenmode", E.LENGTH_MODES, cur, 0, 84)
+  if m then st.lengthMode = E.LENGTH_MODES[m]; touched() end
+  ImGui.SameLine(ctx, 0, 16)
+
+  if st.lengthMode == "Bars" then
+    barsButtons()
+    ImGui.SameLine(ctx, 0, 14)
+    dim(("%d notes a pass, cut wherever the bar ends"):format(pass))
+  else
+    local c, v = slider("repeats", "Repeats", st.repeats, 1, E.MAX_REPEATS, 150)
+    if c then st.repeats = v; touched() end
+    tip(("One pass is %d note%s, so this block is %d."):format(
+        pass, pass == 1 and "" or "s", pass * st.repeats))
+    ImGui.SameLine(ctx, 0, 14)
+    dim(("%d notes a pass"):format(pass))
+  end
 end
 
 local function commonTail(withOctaves, withOctave, withBars, withGate)
@@ -353,7 +379,7 @@ panels.Arpeggio = function()
   if d then st.pattern = d; touched() end
 
   rateRow()
-  repeatsRow()
+  lengthRow()
   commonTail(true, true, false, true)
 end
 
@@ -366,7 +392,7 @@ panels.Run = function()
   if d then st.runDir = d; touched() end
 
   rateRow()
-  repeatsRow()
+  lengthRow()
   commonTail(true, true, false, true)
 end
 
@@ -564,12 +590,11 @@ local function loop()
   ImGui.SetNextWindowSize(ctx, 1000, 760, ImGui.Cond_FirstUseEver)
   ImGui.SetNextWindowBgAlpha(ctx, 1.0)
 
-  -- Both of these are read by Begin and apply to the window it opens, so they
-  -- are pushed before it and popped straight after: everything drawn inside
-  -- should be styled normally.
-  ImGui.PushStyleVar(ctx, ImGui.StyleVar_WindowRounding, WINDOW_ROUNDING)
+  -- Read by Begin and applied to the window it opens, so pushed before it and
+  -- popped straight after: everything drawn inside is styled normally.
+  ImGui.PushStyleColor(ctx, ImGui.Col_WindowBg, WINDOW_BG)
   local visible, open = ImGui.Begin(ctx, TITLE, true)
-  ImGui.PopStyleVar(ctx)
+  ImGui.PopStyleColor(ctx, 1)
 
   if visible then
     frame()

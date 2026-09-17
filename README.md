@@ -92,12 +92,12 @@ The piano roll underneath is whatever you have currently built.
 Arpeggios and bass notes read the chord you set in the Chord tab, so there is
 one chord picker rather than three.
 
-Chords, bass and drums are measured in **bars**. Arpeggios and runs are
-measured in **repeats** instead: one repeat is one pass of whatever the
-direction produced, so the block is as long as the arpeggio and no longer. A
-triad up is three notes and a thirteenth up is seven, and Repeats of 1 gives
-you one of each rather than a bar of each. A melody is however long its own
-notes make it.
+Chords, bass and drums are measured in **bars**, from a quarter of one up to
+eight - a single chord stab is a quarter-bar chord. Arpeggios and runs are
+measured either the same way or in **repeats**, and you pick which: one repeat
+is one pass of whatever the direction produced, so the block comes out as long
+as the arpeggio and no longer, while a bar length cycles the pass and cuts it
+at the bar line. A melody is however long its own notes make it.
 
 A chord can be **chopped** into segments and struck again in each one, from
 1/64 up to 1/1. The drums have no named patterns: a kick every 1/4 is four on

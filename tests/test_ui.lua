@@ -39,6 +39,7 @@ end
 local imgui = {
   idDepth = 0, colDepth = 0, widthDepth = 0, varDepth = 0,
   buttons = {}, sliders = {}, checkboxes = {},
+  bgAlpha = nil, windowBg = nil,
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
 }
@@ -49,10 +50,13 @@ imgui.calls = {}
 local ImGui = {}
 
 -- Constants ReaImGui exposes as plain values.
-for _, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
-                     "Col_Text", "Cond_FirstUseEver", "Key_Escape",
-                     "HoveredFlags_AnyWindow", "StyleVar_WindowRounding" }) do
-  ImGui[k] = 1
+-- Distinct values, so the mock can tell which colour is being pushed rather
+-- than only that one was.
+for i, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
+                     "Col_Text", "Col_WindowBg", "Cond_FirstUseEver",
+                     "Key_Escape", "HoveredFlags_AnyWindow",
+                     "StyleVar_WindowRounding" }) do
+  ImGui[k] = i
 end
 
 function ImGui.CreateContext(name) return { name = name } end
@@ -105,6 +109,11 @@ function ImGui.Button(_, label, w, h)
 end
 function ImGui.PushStyleColor(_, idx, col)
   if type(col) ~= "number" then error("style colour is a " .. type(col)) end
+  if col % 256 == 0 then
+    error(("style colour %08X is fully transparent - colours are 0xRRGGBBAA")
+          :format(col))
+  end
+  if idx == ImGui.Col_WindowBg then imgui.windowBg = col end
   imgui.colDepth = imgui.colDepth + 1
 end
 function ImGui.PopStyleColor(_, n)
@@ -247,7 +256,7 @@ local function frame(clickNth)
   imgui.sliders, imgui.checkboxes = {}, {}
   imgui.clickTarget, imgui.clicked = clickNth, nil
   imgui.idDepth, imgui.colDepth, imgui.widthDepth, imgui.varDepth = 0, 0, 0, 0
-  imgui.bgAlpha, imgui.windowRounding = nil, nil
+  imgui.bgAlpha, imgui.windowBg = nil, nil
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
@@ -266,12 +275,13 @@ ok(good, "the first frame draws: " .. tostring(e))
 ok(#imgui.buttons > 0, "and puts buttons on screen")
 ok(imgui.drawCalls > 0, "and draws the preview roll")
 
--- The window is solid and round-cornered. Both are easy to lose in a later
--- edit and neither shows up anywhere else, so they are asserted rather than
--- left to be noticed.
+-- The window is solid rather than transparent. It is easy to lose in a later
+-- edit and shows up nowhere else, so it is asserted rather than left to be
+-- noticed missing.
 eq(imgui.bgAlpha, 1.0, "the window background is fully opaque, not transparent")
-ok((imgui.windowRounding or 0) > 0,
-   "and its corners are rounded (" .. tostring(imgui.windowRounding) .. ")")
+ok(imgui.windowBg ~= nil, "and it sets a window background colour")
+eq(imgui.windowBg and (imgui.windowBg % 256), 255,
+   "which is itself fully opaque")
 
 -- The category buttons are the way in to each panel, so find and click them.
 local function clickLabel(label)

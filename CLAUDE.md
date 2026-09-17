@@ -49,10 +49,19 @@ chord, bass and drums fill. The other three replace it: a melody is as long as
 its own notes, and an arpeggio or a run is as long as `repeats` passes of
 whatever the direction produced.
 
-**Bars and repeats are not alternatives to offer together.** A block is
-measured one way or the other, and which way is a property of the block, not a
-setting. Chord, bass and drums are bars; arpeggio and run are repeats; melody
-is neither.
+**Bars and repeats are alternatives on an arpeggio and a run, and only there.**
+This file used to say the opposite - that a block is measured one way or the
+other and which way is a property of the block. That was wrong for these two:
+sometimes you want the pass to come out whole, and sometimes you want it to
+line up with a bar, and neither answer is the right one always. `st.lengthMode`
+picks, and `layOut` dispatches. Chord, bass and drums are bars only; melody is
+its own length and ignores the mode entirely.
+
+Bars are a list with fractions in it, not a number: `M.BAR_LENGTHS` runs from a
+quarter of a bar to eight. Anything iterating bars has to cope with `st.bars`
+being less than one - the drum generator walks `while bar * barBeats < c.len`
+and clips each hit, rather than `for bar = 0, st.bars - 1`, which simply does
+not run for a fraction.
 
 **Count, do not accumulate.** `layRepeats` and the chord's chop both compute
 `n` and loop `i = 0, n - 1`, so the last note of a pass cannot land a rounding
@@ -129,12 +138,13 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 - Every `PushStyleVar` needs its `PopStyleVar` too; the UI test counts those
   per frame alongside the ids and colours.
 - ReaImGui patches Dear ImGui so a **top-level** window can carry its own
-  background alpha and round its own corners, which plain Dear ImGui cannot.
-  `SetNextWindowBgAlpha(ctx, 1)` makes the background solid without having an
-  opinion about its colour, so the window still follows whatever theme is set;
-  `StyleVar_WindowRounding` rounds the outside. Both are read by `Begin`, so
-  they are set before it and popped straight after - pushing a window style var
-  inside the window styles the wrong thing.
+  background alpha, which plain Dear ImGui cannot. `SetNextWindowBgAlpha(ctx, 1)`
+  makes it solid and `Col_WindowBg` sets the colour. Both are read by `Begin`,
+  so they are set before it and popped straight after - pushing a window style
+  colour inside the window styles the wrong thing.
+- **`StyleVar_WindowRounding` did not visibly round the window** when it was
+  tried, whatever the patch notes say. The outer radius appears to be the host
+  window's to draw. It was removed rather than left in doing nothing.
 
 ## REAPER, from a script
 
@@ -146,6 +156,16 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 - `MIDI_InsertNote`'s last argument is **noSort**. Pass true for each note in a
   batch, then call `MIDI_Sort` once.
 - A refusal has to close the undo block it opened.
+
+## Colour
+
+One accent, orange, for whatever is chosen; a steel grey window behind it. A
+chosen button also takes dark text, because white on orange is a poor read -
+`pick()` pushes four colours and pops four.
+
+The piano roll sits on a background darker than the window so it reads as
+inset, and `WARN` is red rather than the orange it used to be, so a warning is
+not mistaken for a selection.
 
 ## Tests
 
