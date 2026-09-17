@@ -126,6 +126,15 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 - Button labels are IDs. Two buttons with the same label in one window are the
   same button unless they are inside different `PushID`s.
 - Colours are `0xRRGGBBAA`.
+- Every `PushStyleVar` needs its `PopStyleVar` too; the UI test counts those
+  per frame alongside the ids and colours.
+- ReaImGui patches Dear ImGui so a **top-level** window can carry its own
+  background alpha and round its own corners, which plain Dear ImGui cannot.
+  `SetNextWindowBgAlpha(ctx, 1)` makes the background solid without having an
+  opinion about its colour, so the window still follows whatever theme is set;
+  `StyleVar_WindowRounding` rounds the outside. Both are read by `Begin`, so
+  they are set before it and popped straight after - pushing a window style var
+  inside the window styles the wrong thing.
 
 ## REAPER, from a script
 

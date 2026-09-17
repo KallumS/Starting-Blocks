@@ -57,6 +57,12 @@ local PLAYHEAD    = 0xF2CC4DFF
 local DIM         = 0x8A909CFF
 local WARN        = 0xE09A5AFF
 
+-- ReaImGui patches Dear ImGui so a top-level window can carry its own
+-- background alpha and round its own corners, which a plain Dear ImGui window
+-- cannot. SetNextWindowBgAlpha(1) makes the background solid without having an
+-- opinion about its colour, so the window still follows whatever theme is set.
+local WINDOW_ROUNDING = 10
+
 ------------------------------------------------------------------------------
 -- State
 ------------------------------------------------------------------------------
@@ -556,7 +562,15 @@ local sectionID, cmdID
 
 local function loop()
   ImGui.SetNextWindowSize(ctx, 1000, 760, ImGui.Cond_FirstUseEver)
+  ImGui.SetNextWindowBgAlpha(ctx, 1.0)
+
+  -- Both of these are read by Begin and apply to the window it opens, so they
+  -- are pushed before it and popped straight after: everything drawn inside
+  -- should be styled normally.
+  ImGui.PushStyleVar(ctx, ImGui.StyleVar_WindowRounding, WINDOW_ROUNDING)
   local visible, open = ImGui.Begin(ctx, TITLE, true)
+  ImGui.PopStyleVar(ctx)
+
   if visible then
     frame()
     ImGui.End(ctx)
