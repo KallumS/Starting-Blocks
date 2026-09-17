@@ -37,8 +37,9 @@ end
 ------------------------------------------------------------------------------
 
 local imgui = {
-  idDepth = 0, colDepth = 0, widthDepth = 0,
+  idDepth = 0, colDepth = 0, widthDepth = 0, varDepth = 0,
   buttons = {}, sliders = {}, checkboxes = {},
+  bgAlpha = nil, windowBg = nil,
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
 }
@@ -49,14 +50,34 @@ imgui.calls = {}
 local ImGui = {}
 
 -- Constants ReaImGui exposes as plain values.
-for _, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
-                     "Col_Text", "Cond_FirstUseEver", "Key_Escape",
-                     "HoveredFlags_AnyWindow" }) do
-  ImGui[k] = 1
+-- Distinct values, so the mock can tell which colour is being pushed rather
+-- than only that one was.
+for i, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
+                     "Col_Text", "Col_WindowBg", "Cond_FirstUseEver",
+                     "Key_Escape", "HoveredFlags_AnyWindow",
+                     "StyleVar_WindowRounding" }) do
+  ImGui[k] = i
 end
 
 function ImGui.CreateContext(name) return { name = name } end
 function ImGui.SetNextWindowSize() count("SetNextWindowSize") end
+function ImGui.SetNextWindowBgAlpha(_, a)
+  if type(a) ~= "number" or a < 0 or a > 1 then
+    error("window background alpha is " .. tostring(a) .. ", not a 0..1 number")
+  end
+  imgui.bgAlpha = a
+end
+function ImGui.PushStyleVar(_, var, v)
+  if var == nil then error("PushStyleVar with no variable") end
+  if type(v) ~= "number" then error("style var value is a " .. type(v)) end
+  imgui.varDepth = imgui.varDepth + 1
+  imgui.windowRounding = (var == ImGui.StyleVar_WindowRounding) and v
+                         or imgui.windowRounding
+end
+function ImGui.PopStyleVar(_, n)
+  imgui.varDepth = imgui.varDepth - (n or 1)
+  if imgui.varDepth < 0 then error("PopStyleVar without a push") end
+end
 function ImGui.Begin() count("Begin"); return true, true end
 function ImGui.End() count("End") end
 function ImGui.IsKeyPressed() return false end
@@ -88,6 +109,11 @@ function ImGui.Button(_, label, w, h)
 end
 function ImGui.PushStyleColor(_, idx, col)
   if type(col) ~= "number" then error("style colour is a " .. type(col)) end
+  if col % 256 == 0 then
+    error(("style colour %08X is fully transparent - colours are 0xRRGGBBAA")
+          :format(col))
+  end
+  if idx == ImGui.Col_WindowBg then imgui.windowBg = col end
   imgui.colDepth = imgui.colDepth + 1
 end
 function ImGui.PopStyleColor(_, n)
@@ -229,12 +255,14 @@ local function frame(clickNth)
   imgui.buttons, imgui.tooltips = {}, {}
   imgui.sliders, imgui.checkboxes = {}, {}
   imgui.clickTarget, imgui.clicked = clickNth, nil
-  imgui.idDepth, imgui.colDepth, imgui.widthDepth = 0, 0, 0
+  imgui.idDepth, imgui.colDepth, imgui.widthDepth, imgui.varDepth = 0, 0, 0, 0
+  imgui.bgAlpha, imgui.windowBg = nil, nil
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
   if imgui.colDepth ~= 0 then return false, "unbalanced PushStyleColor: " .. imgui.colDepth end
   if imgui.widthDepth ~= 0 then return false, "unbalanced PushItemWidth" end
+  if imgui.varDepth ~= 0 then return false, "unbalanced PushStyleVar: " .. imgui.varDepth end
   return true
 end
 
@@ -246,6 +274,14 @@ local good, e = frame()
 ok(good, "the first frame draws: " .. tostring(e))
 ok(#imgui.buttons > 0, "and puts buttons on screen")
 ok(imgui.drawCalls > 0, "and draws the preview roll")
+
+-- The window is solid rather than transparent. It is easy to lose in a later
+-- edit and shows up nowhere else, so it is asserted rather than left to be
+-- noticed missing.
+eq(imgui.bgAlpha, 1.0, "the window background is fully opaque, not transparent")
+ok(imgui.windowBg ~= nil, "and it sets a window background colour")
+eq(imgui.windowBg and (imgui.windowBg % 256), 255,
+   "which is itself fully opaque")
 
 -- The category buttons are the way in to each panel, so find and click them.
 local function clickLabel(label)

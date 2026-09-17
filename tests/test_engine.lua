@@ -567,6 +567,105 @@ do
 end
 
 ------------------------------------------------------------------------------
+-- How long a block is
+--
+-- Chords, bass and drums are measured in bars, and a bar can now be a quarter
+-- or a half of one. An arpeggio or a run is measured either in passes or by
+-- filling that same length, and which is the user's choice.
+------------------------------------------------------------------------------
+
+do
+  eqList({ E.BAR_LENGTHS[1].bars, E.BAR_LENGTHS[2].bars, E.BAR_LENGTHS[3].bars },
+         {0.25, 0.5, 1}, "a block can be a quarter or a half of a bar")
+  eq(#E.BAR_LENGTHS, 6, "six lengths")
+  eq(E.BAR_LENGTHS[#E.BAR_LENGTHS].bars, 8, "up to eight bars")
+
+  -- The chord, which fills whatever length it is given.
+  local chord = inKey("C", "Major", { bars = 0.25 })
+  eq(E.generate(chord).beats, 1, "a quarter-bar chord is one beat of 4/4")
+  eq(#E.generate(chord).notes, 3, "struck once")
+  eq(E.generate(chord).notes[1].len, 0.9, "and held for that beat, less the gate")
+
+  chord.bars = 0.5
+  eq(E.generate(chord).beats, 2, "a half-bar chord is two beats")
+
+  -- The bass, which repeats within it.
+  local bass = inKey("C", "Major", { cat = "Bass", bars = 0.5,
+                                     rate = indexOf(E.RATES, "1/4") })
+  eqList(starts(E.generate(bass)), {0, 1}, "a half bar of quarter-note bass is two notes")
+  bass.bars = 0.25
+  eqList(starts(E.generate(bass)), {0}, "a quarter bar is one")
+
+  -- The drums, whose pattern belongs to a bar but whose block need not be one.
+  eqList(starts(drumsFor("Kick", "1/4", { bars = 1 })), {0, 1, 2, 3}, "a bar of kicks")
+  eqList(starts(drumsFor("Kick", "1/4", { bars = 0.5 })), {0, 1},
+         "half a bar keeps the first half of the pattern")
+  eqList(starts(drumsFor("Kick", "1/4", { bars = 0.25 })), {0}, "a quarter keeps one")
+  eqList(starts(drumsFor("Snare", "1/2", { bars = 0.25 })), {},
+         "a quarter bar never reaches the snare on the two")
+  eq(E.generate(state{ cat = "Drums", bars = 0.5 }).beats, 2,
+     "and the block is as long as it says")
+
+  -- A fractional block still ends where it says it does, whatever is in it.
+  for _, cat in ipairs(E.CATEGORIES) do
+    for _, b in ipairs({ 0.25, 0.5 }) do
+      local st = inKey("C", "Major", { cat = cat, bars = b })
+      local r = E.generate(st)
+      for _, n in ipairs(r.notes) do
+        checks = checks + 1
+        if n.start >= r.beats + 1e-9 then
+          fail(("%s over %s bars put a note at %s, past a %s beat block")
+               :format(cat, b, n.start, r.beats))
+        end
+      end
+    end
+  end
+end
+
+-- An arpeggio or a run, measured both ways.
+do
+  local st = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/8") })
+
+  eq(st.lengthMode, "Repeats", "passes are the default")
+  st.repeats = 2
+  local byPass = E.generate(st)
+  eq(#byPass.notes, 6, "two passes of a triad is six notes")
+  eq(byPass.beats, 3, "and the block stops with the second pass")
+  ok(byPass.name:find("x2", 1, true), "named for its passes")
+
+  -- Filling a length instead: the pass cycles and is cut wherever the block
+  -- ends, which is how it worked before repeats existed.
+  st.lengthMode = "Bars"
+  st.bars = 1
+  local byBar = E.generate(st)
+  eq(byBar.beats, 4, "a one-bar block is a bar long")
+  eq(#byBar.notes, 8, "eight eighth-notes fill it")
+  eqList(pitches(byBar), {60,64,67,60,64,67,60,64},
+         "the pass cycles and is cut mid-pass at the bar line")
+  ok(byBar.name:find("1 bar", 1, true), "named for its length instead")
+
+  st.bars = 0.5
+  eq(#E.generate(st).notes, 4, "half a bar is four")
+  st.bars = 2
+  eq(#E.generate(st).notes, 16, "two bars is sixteen")
+
+  -- The same choice on a run.
+  local run = inKey("C", "Major", { cat = "Run", rate = indexOf(E.RATES, "1/4") })
+  eq(E.generate(run).beats, 8, "a run of one pass is its own length")
+  run.lengthMode = "Bars"
+  run.bars = 1
+  eq(E.generate(run).beats, 4, "filling a bar cuts it to the bar")
+  eq(#E.generate(run).notes, 4, "four quarter notes")
+  eqList(pitches(E.generate(run)), {60, 62, 64, 65}, "the first four of the run")
+
+  -- Melody, chord, bass and drums are measured one way only, so the mode must
+  -- not leak into them.
+  local mel = inKey("C", "Major", { cat = "Melody", lengthMode = "Bars", bars = 8 })
+  eq(E.generate(mel).beats, E.melodyBeats(mel),
+     "a melody is its own length whatever the mode says")
+end
+
+------------------------------------------------------------------------------
 -- Straight, triplet and dotted
 --
 -- One setting, and every block that reads a rate has to read it: the chord's
@@ -720,6 +819,89 @@ do
         fail(cat .. ": note at " .. n.start .. " is past the end of a " .. r.beats .. " beat block")
       end
     end
+  end
+end
+
+------------------------------------------------------------------------------
+-- clampState
+--
+-- Every field here is used to look something up or to fill a slider, so what
+-- it does with a value it should never have seen is worth checking directly
+-- rather than only through the window.
+------------------------------------------------------------------------------
+
+do
+  -- Bars are picked from a list with fractions in it, so they snap to the
+  -- nearest entry rather than rounding to a whole number.
+  local function barsAfter(v)
+    local st = E.newState()
+    st.bars = v
+    E.clampState(st)
+    return st.bars
+  end
+  eq(barsAfter(0.25), 0.25, "a quarter bar survives")
+  eq(barsAfter(0.5),  0.5,  "so does a half")
+  eq(barsAfter(0.3),  0.25, "something between snaps to the nearer of the two")
+  eq(barsAfter(0.45), 0.5,  "the other way too")
+  eq(barsAfter(3),    2,    "exactly between two entries keeps the shorter")
+  eq(barsAfter(3.5),  4,    "nearer the longer takes the longer")
+  eq(barsAfter(1.4),  1,    "and nearer the shorter takes the shorter")
+  eq(barsAfter(99),   8,    "past the end comes back to the longest")
+  eq(barsAfter(-5),   0.25, "below the start comes back to the shortest")
+  eq(barsAfter("x"),  1,    "and nonsense falls back to one bar")
+
+  -- The length mode is a name, and an unknown one falls back to the first.
+  local function modeAfter(v)
+    local st = E.newState()
+    st.lengthMode = v
+    E.clampState(st)
+    return st.lengthMode
+  end
+  eq(modeAfter("Bars"), "Bars", "a real mode survives")
+  eq(modeAfter("Repeats"), "Repeats", "so does the other one")
+  eq(modeAfter("Furlongs"), E.LENGTH_MODES[1], "an invented one does not")
+  eq(modeAfter(nil), E.LENGTH_MODES[1], "nor does nothing at all")
+
+  -- The drum rate is a name too.
+  local function rateAfter(v)
+    local st = E.newState()
+    st.drumRate = v
+    E.clampState(st)
+    return st.drumRate
+  end
+  eq(rateAfter("1/8"), "1/8", "a real rate survives")
+  eq(rateAfter("1/3"), "1/1", "one that is not a rate falls back to a single hit")
+  eq(rateAfter(7), "1/1", "and so does a number")
+
+  -- Everything else comes back inside its own table.
+  local wild = E.newState()
+  for _, k in ipairs({ "root", "scale", "family", "chord", "dia", "rate",
+                       "rateMod", "runDir", "pattern", "interval", "melDir",
+                       "shape", "bassTone", "drumPiece", "chop", "inv", "oct",
+                       "bassOct", "octaves", "repeats", "gate", "baseOct",
+                       "shuffle", "degree" }) do
+    wild[k] = 9999
+  end
+  wild.cat = "Sousaphone"
+  E.clampState(wild)
+  eq(wild.cat, E.CATEGORIES[1], "an unknown block falls back to the first")
+  ok(wild.root <= #E.ROOTS and wild.root >= 1, "root is inside its table")
+  ok(wild.chord <= #E.CHORDS, "chord is inside its table")
+  ok(wild.drumPiece <= #E.DRUM_PIECES, "drum piece is inside its table")
+  ok(wild.chop <= #E.RATES, "chop is inside its table")
+  ok(wild.degree <= E.scaleLen(wild) - 1, "degree is inside the scale")
+  ok(wild.repeats <= E.MAX_REPEATS, "repeats is inside its range")
+  ok(wild.shuffle <= 100, "shuffle is inside its range")
+  ok(wild.gate <= 100, "gate is inside its range")
+  ok(wild.oct <= 3 and wild.bassOct <= 0, "the octaves are inside theirs")
+
+  -- And a clamped state still generates, for every block.
+  for _, cat in ipairs(E.CATEGORIES) do
+    wild.cat = cat
+    E.clampState(wild)
+    checks = checks + 1
+    local good, err = pcall(E.generate, wild)
+    if not good then fail(cat .. " will not generate from a clamped state: " .. tostring(err)) end
   end
 end
 

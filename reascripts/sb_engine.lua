@@ -210,6 +210,19 @@ M.RATE_MODS = {
 M.DIRECTIONS = { "Up", "Down", "Up/Down", "Down/Up", "Random", "Converge", "Diverge" }
 M.MAX_REPEATS = 16
 
+-- How long a block is, as a multiple of a bar. Quarter and half bars are here
+-- because a block shorter than a bar is still a block.
+M.BAR_LENGTHS = {
+  { name = "1/4", bars = 0.25 }, { name = "1/2", bars = 0.5 },
+  { name = "1",   bars = 1 },    { name = "2",   bars = 2 },
+  { name = "4",   bars = 4 },    { name = "8",   bars = 8 },
+}
+
+-- An arpeggio or a run is measured one of two ways, and the user picks which:
+-- by how many passes it plays, or by filling a length the way it did before
+-- repeats existed.
+M.LENGTH_MODES = { "Repeats", "Bars" }
+
 M.INTERVALS  = { "2nd", "3rd", "4th", "5th", "6th", "7th", "Octave" }
 M.SHAPES     = { "Single", "Return", "Fill" }
 M.BASS_TONES = { "Root", "3rd", "5th", "7th" }
@@ -263,6 +276,7 @@ function M.newState()
     rate = 4, rateMod = 1,                 -- 1/8 straight
     chop = 7,                              -- the chord is one 1/1 segment
     octaves = 1, repeats = 1, bars = 1,
+    lengthMode = "Repeats",                -- how an arpeggio or run is measured
     gate = 90,
     interval = 1, melDir = 1, shape = 1,   -- a step, up, on its own
     bassTone = 1, bassOct = -1,
@@ -439,8 +453,20 @@ function M.clampState(st)
   st.gate     = pin(st.gate, 5, 100, 90)
   st.shuffle  = pin(st.shuffle, 0, 100, 0)
   st.baseOct  = pin(st.baseOct, 0, 8, 4)
-  st.bars     = pin(st.bars, 1, 8, 1)
-  if st.bars ~= 1 and st.bars ~= 2 and st.bars ~= 4 and st.bars ~= 8 then st.bars = 1 end
+  -- Bars are picked from a list rather than typed, and the list has fractions
+  -- in it, so snap to the nearest entry instead of rounding to an integer.
+  -- The list ascends and the comparison is strict, so a value exactly between
+  -- two entries keeps the shorter: a block that is too short is easier to
+  -- notice than one that is too long.
+  local bars, best = tonumber(st.bars) or 1, nil
+  for _, b in ipairs(M.BAR_LENGTHS) do
+    if not best or math.abs(b.bars - bars) < math.abs(best - bars) then best = b.bars end
+  end
+  st.bars = best
+
+  local mode = false
+  for _, m in ipairs(M.LENGTH_MODES) do if m == st.lengthMode then mode = true end end
+  if not mode then st.lengthMode = M.LENGTH_MODES[1] end
 
   local found = false
   for _, c in ipairs(M.CATEGORIES) do if c == st.cat then found = true end end
@@ -537,6 +563,27 @@ local function layRepeats(st, c, seq, repeats)
   c.len = count * step
 end
 
+-- Cycles a sequence over a length that is already decided, which is how an
+-- arpeggio worked before repeats existed: it plays until the block runs out,
+-- wherever in the pass that happens to fall.
+local function layFill(st, c, seq)
+  if #seq == 0 then return end
+  local step = M.rateBeats(st)
+  local n    = math.max(1, math.ceil(c.len / step - 1e-9))
+  for i = 0, n - 1 do
+    local at = i * step
+    addNote(c, at, math.min(step * st.gate / 100, c.len - at),
+            seq[(i % #seq) + 1], M.VELOCITY)
+    if c.truncated then return end
+  end
+end
+
+-- Whichever way this block is being measured.
+local function layOut(st, c, seq)
+  if st.lengthMode == "Bars" then layFill(st, c, seq)
+  else layRepeats(st, c, seq, st.repeats) end
+end
+
 -- How many notes a single pass of an arpeggio or a run comes to. Worth knowing
 -- on screen: it is what one repeat actually costs.
 function M.passLength(st)
@@ -589,7 +636,7 @@ GEN.Arpeggio = function(st, c)
   for o = 0, st.octaves - 1 do
     for _, p in ipairs(tones) do pool[#pool + 1] = p + o * 12 end
   end
-  layRepeats(st, c, applyDirection(pool, st.pattern), st.repeats)
+  layOut(st, c, applyDirection(pool, st.pattern))
 end
 
 GEN.Run = function(st, c)
@@ -599,7 +646,7 @@ GEN.Run = function(st, c)
   for i = 0, M.scaleLen(st) * st.octaves do
     pool[#pool + 1] = M.scalePitch(st, st.degree + i) + st.oct * 12
   end
-  layRepeats(st, c, applyDirection(pool, st.runDir), st.repeats)
+  layOut(st, c, applyDirection(pool, st.runDir))
 end
 
 -- A melodic cell is however long its own notes make it.
@@ -654,22 +701,29 @@ GEN.Drums = function(st, c)
   local piece = M.DRUM_PIECES[st.drumPiece]
   local step  = M.drumStep(st)
 
-  for bar = 0, st.bars - 1 do
+  -- The pattern belongs to a bar and repeats with it, but the block can be a
+  -- fraction of one, so walk bars and drop anything past the end of the block.
+  local bar = 0
+  while bar * st.barBeats < c.len - 1e-9 do
     local base = bar * st.barBeats
 
     if not step then                          -- a single hit, nothing to space
-      if piece.start < st.barBeats then
+      if base + piece.start < c.len - 1e-9 then
         addNote(c, base + piece.start, 0.1, piece.note, M.VELOCITY)
       end
     else
       local i, at = 0, piece.start
       while at < st.barBeats - 1e-9 do
-        addNote(c, base + at + M.swingOffset(st, i, step), 0.1, piece.note, M.VELOCITY)
-        if c.truncated then return end
+        local hit = base + at + M.swingOffset(st, i, step)
+        if hit < c.len - 1e-9 then
+          addNote(c, hit, 0.1, piece.note, M.VELOCITY)
+          if c.truncated then return end
+        end
         i  = i + 1
         at = piece.start + i * step
       end
     end
+    bar = bar + 1
   end
 end
 
@@ -677,12 +731,27 @@ end
 -- The block
 ------------------------------------------------------------------------------
 
+-- The label for whatever st.bars currently is, as the list spells it.
+function M.barsLabel(st)
+  for _, b in ipairs(M.BAR_LENGTHS) do
+    if math.abs(b.bars - st.bars) < 1e-9 then return b.name end
+  end
+  return tostring(st.bars)
+end
+
 function M.blockName(st)
   local root  = M.ROOTS[st.root].name
   local scale = M.SCALES[st.scale].name
   local where = M.degreeNumeral(st, st.degree, true)
   local rate  = M.RATES[st.rate].name .. M.modSuffix(st)
-  local times = st.repeats > 1 and (" x" .. st.repeats) or ""
+  -- How the block was measured belongs in its name: "x3" is three passes,
+  -- "1/2 bar" is a length the pass was cut to fit.
+  local times = ""
+  if st.lengthMode == "Bars" then
+    times = " " .. M.barsLabel(st) .. " bar"
+  elseif st.repeats > 1 then
+    times = " x" .. st.repeats
+  end
 
   if st.cat == "Chord" then
     local chop = (st.chop < #M.RATES or st.rateMod > 1)

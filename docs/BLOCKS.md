@@ -218,19 +218,27 @@ order and then walks them: Up, Down, Up/Down, Down/Up, Random, Converge, Diverge
 before any of them repeats. `Converge` works inwards from the outside,
 `Diverge` outwards from the middle.
 
-**Repeats** is how many times the pass plays, from 1 to 16. One pass
-is one time through whatever the direction produced, so an arpeggio block is
-as long as the arpeggio and no longer - a triad up is three notes, a
-thirteenth up is seven, and the same Repeats setting gives you one of each
-rather than a bar of each.
+**Length** is measured one of two ways, and you pick which.
+
+**Repeats** is how many times the pass plays, from 1 to 16. One pass is
+one time through whatever the direction produced, so the block is as long as
+the arpeggio and no longer - a triad up is three notes, a thirteenth up is
+seven, and the same Repeats setting gives you one of each rather than a bar
+of each.
+
+**Bars** fills a length instead: the pass cycles until the block runs out,
+wherever in the pass that falls. A one-bar block of eighth notes is eight
+notes whether the chord under it has three tones or seven. This is how an
+arpeggio worked before repeats existed, and it is the one to reach for when
+the block has to line up with a bar rather than with itself.
 
 ### Runs
 
 The same seven directions, but over the scale rather than the chord,
 starting on the degree you chose and running up to four octaves. A
 one-octave run is inclusive of the octave above, so it lands back on the
-note it started from, and **Repeats** counts passes the same way it does for
-an arpeggio.
+note it started from, and it is measured in repeats or in bars the same way
+an arpeggio is.
 
 ### Melody
 
@@ -313,10 +321,14 @@ rate are not two files fighting over one filename.
 
 **Gate** is how much of the step the note actually holds, from 5% to 100%.
 
-Chords, bass and drums are measured in **bars** - 1, 2, 4 or 8, and a bar is
-however long the project's time signature says it is. Arpeggios and runs are
-measured in **repeats** instead, and a melody is however long its own notes
-make it.
+Chords, bass and drums are measured in **bars**: 1/4, 1/2, 1, 2, 4, 8. A bar is however long the
+project's time signature says it is, and a quarter or a half of one is still
+a block - a single chord stab is a quarter-bar chord. A drum pattern belongs
+to a bar, so a block shorter than a bar keeps the front of the pattern and
+drops the rest.
+
+Arpeggios and runs take either of those lengths **or** a number of repeats.
+A melody is however long its own notes make it.
 
 Everything leaves at velocity 100. Shaping a block's
 dynamics is a job for the MIDI editor once it is in the project, not for a
