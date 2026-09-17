@@ -176,18 +176,25 @@ bit operators, like the MIDI writer, so it does not care which Lua a REAPER
 build carries - and it must keep the alpha byte, or ReaImGui is handed a fully
 transparent colour.
 
-Every accent is pale, so **a chosen button takes dark text**: white on any of
-them is unreadable. `pick()` pushes four colours and pops four.
+An unchosen button is teal, `#B1E5E6`. That and every accent are pale, so
+**every button takes dark text** - white on any of them is unreadable. Which is
+why `pick()` colours every button, chosen or not, rather than only the chosen
+ones, and why **every button in the window goes through `pick()`**. A raw
+`ImGui.Button` would be the only thing left wearing the default theme: light
+text on a dark button, in a window where nothing else looks like that.
 
-The MIDI notes are white, because they are the content rather than a control,
-and nothing that highlights is white. The playhead is blue, the one hue no
-accent is. `WARN` is a deeper red than the key accent so a warning is not
-mistaken for a selection.
+The MIDI notes are `#CCFBFA`, close to the unchosen button but never next to
+one - notes sit on the roll, buttons on the window - and nothing that
+highlights uses it, because the notes are content rather than a control. The
+playhead is blue, the one hue no accent is. `WARN` is a deeper red than the key
+accent so a warning is not mistaken for a selection.
 
 `tests/test_ui.lua` asserts all of this: that every band's colour appears in a
-frame, that nothing else highlights, that there is one hover and one held shade
-per section and neither is the accent, that shading keeps the alpha, that the
-notes are white, and that chosen text is dark.
+frame, that the unchosen colour does, that nothing else paints a button, that
+there is one hover and one held shade per button colour and neither is that
+colour, that shading keeps the alpha, that the notes use their own colour, and
+that chosen text is dark. It also counts the colours pushed for buttons against
+the buttons drawn, so **a button added without going through `pick()` fails**.
 
 ## Tests
 

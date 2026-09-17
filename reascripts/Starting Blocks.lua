@@ -5,14 +5,13 @@
  *                 drum hits - picked by key, scale and scale degree, and put
  *                 into the project as MIDI.
  *
- * About:          Pick a key. Pick a degree of it. Pick a block. Then either
- *                 drop it where the mouse is, insert it at the edit cursor, or
- *                 write it out as a .mid.
+ * About:          Pick a key. Pick a degree of it. Pick a block. Then insert it
+ *                 at the edit cursor, write it out as a .mid, or audition it.
  *
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Starting-Blocks
- * Version:        2.1
+ * Version:        2.2
  * Provides:
  *   sb_engine.lua
  *   sb_midi.lua
@@ -61,7 +60,12 @@ local ACC_PANEL   = 0xFFEDB9FF
 -- them is unreadable.
 local ACCENT_TEXT = 0x1E2226FF
 
-local NOTE_COL    = 0xFFFFFFFF   -- the notes are the content, not a control
+-- A button nobody has chosen. Pale enough that it needs the same dark text the
+-- accents do, which is why pick() colours every button rather than only the
+-- chosen ones.
+local BUTTON      = 0xB1E5E6FF
+
+local NOTE_COL    = 0xCCFBFAFF   -- the notes are the content, not a control
 local ROLL_BG     = 0x171A1CFF   -- inset, darker than the window behind it
 local ROLL_BAR    = 0x454A50FF
 local ROLL_BEAT   = 0x2C3034FF
@@ -159,15 +163,17 @@ end
 local accent = ACC_PANEL
 local function section(col) accent = col end
 
+-- Every button in the window comes through here, chosen or not: an unchosen
+-- one is teal and a chosen one takes the colour of its section. Both are pale,
+-- so both take dark text.
 local function pick(label, selected, width)
-  if selected then
-    ImGui.PushStyleColor(ctx, ImGui.Col_Button, accent)
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(accent, 0.18))
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(accent, -0.18))
-    ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
-  end
+  local bg = selected and accent or BUTTON
+  ImGui.PushStyleColor(ctx, ImGui.Col_Button, bg)
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(bg, 0.18))
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(bg, -0.18))
+  ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  if selected then ImGui.PopStyleColor(ctx, 4) end
+  ImGui.PopStyleColor(ctx, 4)
   return hit
 end
 
@@ -560,7 +566,7 @@ local function drawActions()
 
   ImGui.Dummy(ctx, 0, 2)
 
-  if ImGui.Button(ctx, "Insert at cursor", 150, 0) then
+  if pick("Insert at cursor", false, 150) then
     local r = Place.insert(block)
     if r == Place.OK then say("Inserted at the edit cursor")
     elseif r == Place.NOTHING then say("Nothing to insert", true)
@@ -568,7 +574,7 @@ local function drawActions()
   end
 
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Export .mid", 120, 0) then
+  if pick("Export .mid", false, 120) then
     local r, path = Place.export(block)
     if r == Place.OK then say("Wrote " .. tostring(path))
     elseif r == Place.NOTHING then say("Nothing to write", true)

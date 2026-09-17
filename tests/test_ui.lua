@@ -40,7 +40,7 @@ local imgui = {
   idDepth = 0, colDepth = 0, widthDepth = 0, varDepth = 0,
   buttons = {}, sliders = {}, checkboxes = {},
   bgAlpha = nil, windowBg = nil,
-  highlights = {}, hovered = {}, held = {},
+  highlights = {}, hovered = {}, held = {}, buttonColourPushes = 0,
   textColours = {}, drawColours = {},
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
@@ -116,7 +116,10 @@ function ImGui.PushStyleColor(_, idx, col)
           :format(col))
   end
   if idx == ImGui.Col_WindowBg then imgui.windowBg = col end
-  if idx == ImGui.Col_Button        then imgui.highlights[col] = true end
+  if idx == ImGui.Col_Button then
+    imgui.highlights[col] = true
+    imgui.buttonColourPushes = imgui.buttonColourPushes + 1
+  end
   if idx == ImGui.Col_ButtonHovered then imgui.hovered[col] = true end
   if idx == ImGui.Col_ButtonActive  then imgui.held[col] = true end
   if idx == ImGui.Col_Text          then imgui.textColours[col] = true end
@@ -266,6 +269,7 @@ local function frame(clickNth)
   imgui.bgAlpha, imgui.windowBg = nil, nil
   imgui.highlights, imgui.textColours, imgui.drawColours = {}, {}, {}
   imgui.hovered, imgui.held = {}, {}
+  imgui.buttonColourPushes = 0
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
@@ -298,6 +302,7 @@ eq(imgui.windowBg and (imgui.windowBg % 256), 255,
 do
   local ACCENTS = { 0xFF7E7EFF, 0xFFA259FF, 0xFFCB56FF, 0xFFEDB9FF }
   local NAMES   = { "key", "scale degree", "building block", "the panel below" }
+  local UNCHOSEN = 0xB1E5E6FF
   for i, col in ipairs(ACCENTS) do
     checks = checks + 1
     if not imgui.highlights[col] then
@@ -306,22 +311,31 @@ do
                :format(NAMES[i], col))
     end
   end
+  ok(imgui.highlights[UNCHOSEN], "an unchosen button is teal")
 
   local function count(t)
     local n = 0
     for _ in pairs(t) do n = n + 1 end
     return n
   end
-  eq(count(imgui.highlights), #ACCENTS, "and no other colour highlights anything")
+  -- Four section accents and the one unchosen colour, and nothing else.
+  eq(count(imgui.highlights), #ACCENTS + 1, "and no other colour paints a button")
 
-  -- Hovered and held are shaded from the accent rather than picked by hand, so
-  -- there is one of each per section and none of them is the accent itself.
-  eq(count(imgui.hovered), #ACCENTS, "one hover shade per section")
-  eq(count(imgui.held), #ACCENTS, "one held shade per section")
+  -- Hovered and held are shaded rather than picked by hand, so there is one of
+  -- each per button colour and none of them is that colour itself.
+  eq(count(imgui.hovered), #ACCENTS + 1, "one hover shade per button colour")
+  eq(count(imgui.held), #ACCENTS + 1, "one held shade per button colour")
   for _, col in ipairs(ACCENTS) do
     ok(not imgui.hovered[col], ("the hover shade of %08X is not %08X"):format(col, col))
     ok(not imgui.held[col], ("nor is the held shade"):format(col))
   end
+  ok(not imgui.hovered[UNCHOSEN], "nor is the unchosen one's")
+
+  -- Nothing may be left wearing the default theme: every button goes through
+  -- the same helper, so the count of buttons drawn and of colours pushed for
+  -- them have to agree.
+  eq(imgui.buttonColourPushes, #imgui.buttons,
+     "every button drawn was given a colour")
   for col in pairs(imgui.hovered) do
     checks = checks + 1
     if col % 256 ~= 255 then
@@ -330,8 +344,8 @@ do
     end
   end
 
-  ok(imgui.drawColours[0xFFFFFFFF], "the MIDI notes are drawn white")
-  ok(not imgui.highlights[0xFFFFFFFF], "which is not a highlight colour")
+  ok(imgui.drawColours[0xCCFBFAFF], "the MIDI notes are drawn in their own colour")
+  ok(not imgui.highlights[0xCCFBFAFF], "which paints no button")
 
   -- A pale accent needs dark text on it, or a chosen button cannot be read.
   local darkest
