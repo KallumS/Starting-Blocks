@@ -180,46 +180,26 @@ three - so a missing arrow fails rather than going unnoticed.
 
 ## Colour
 
-Colour is currently **too loud, and due a revisit**. Do not add more of it;
-prefer shape, spacing and position. The bands below are described as they
-stand, not as they should stay.
+**Reset to Dear ImGui's own palette, deliberately.** The window, the unchosen
+buttons, the text and the headings are all the theme's. Four coloured bands
+were tried and pulled back out; do not reach for colour again without being
+asked.
 
-**The window is coloured in bands, one per section**, warming down the screen:
-the key `#FF7E7E`, the scale degree `#FFA259`, which block `#FFCB56`, and
-everything that block offers `#FFEDB9`. A user who has lost their place can
-find it by colour rather than by reading, which is the whole reason there are
-four and not one.
+Two things are still coloured, because there is no default to fall back to:
 
-`section(col)` sets which is current and `pick()` and `heading()` read it, so a
-helper never takes a colour it would only pass on. Set it at the top of a
-section, not per control. A new section means a new constant and one
-`section()` call.
+- **A chosen button.** A plain Dear ImGui button has no chosen state, so it
+  borrows the theme's own pressed blue. Without it a chosen button and an
+  unchosen one are identical and the window is unusable. `tests/test_ui.lua`
+  asserts exactly one colour paints a button, and that far fewer colours are
+  pushed than there are buttons drawn - which is what catches a return to
+  colouring everything.
+- **The piano roll**, which is drawn rather than composed of widgets. Quiet
+  greys and one amber playhead.
 
-Hovered and held are `shade()`d from the accent rather than picked by hand, so
-a section needs one colour and not three. `shade` uses arithmetic rather than
-bit operators, like the MIDI writer, so it does not care which Lua a REAPER
-build carries - and it must keep the alpha byte, or ReaImGui is handed a fully
-transparent colour.
-
-An unchosen button is teal, `#B1E5E6`. That and every accent are pale, so
-**every button takes dark text** - white on any of them is unreadable. Which is
-why `pick()` colours every button, chosen or not, rather than only the chosen
-ones, and why **every button in the window goes through `pick()`**. A raw
-`ImGui.Button` would be the only thing left wearing the default theme: light
-text on a dark button, in a window where nothing else looks like that.
-
-The MIDI notes are `#CCFBFA`, close to the unchosen button but never next to
-one - notes sit on the roll, buttons on the window - and nothing that
-highlights uses it, because the notes are content rather than a control. The
-playhead is blue, the one hue no accent is. `WARN` is a deeper red than the key
-accent so a warning is not mistaken for a selection.
-
-`tests/test_ui.lua` asserts all of this: that every band's colour appears in a
-frame, that the unchosen colour does, that nothing else paints a button, that
-there is one hover and one held shade per button colour and neither is that
-colour, that shading keeps the alpha, that the notes use their own colour, and
-that chosen text is dark. It also counts the colours pushed for buttons against
-the buttons drawn, so **a button added without going through `pick()` fails**.
+`shade()` makes the hover and held states from the chosen colour rather than
+hand-picking them. Arithmetic rather than bit operators, like the MIDI writer,
+and it must keep the alpha byte or ReaImGui is handed a fully transparent
+colour.
 
 ## Tests
 

@@ -45,40 +45,30 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
-local WINDOW_BG   = 0x26282BFF   -- dark grey
+-- Back to Dear ImGui's own palette. The one thing it has no colour for is a
+-- button that is chosen, because a plain button has no chosen state, so that
+-- borrows the theme's own pressed blue and nothing else is overridden.
+local SELECTED    = 0x0F87FAFF
 
--- One colour per section of the window, warming as you go down it: the key at
--- the top, then the degree, then which block, then everything that block
--- offers. A user who has lost their place can find it by colour rather than by
--- reading, which is the whole reason there are four of these and not one.
-local ACC_KEY     = 0xFF7E7EFF
-local ACC_DEGREE  = 0xFFA259FF
-local ACC_BLOCK   = 0xFFCB56FF
-local ACC_PANEL   = 0xFFEDB9FF
+-- The step numbers and the arrows between them. Neutral on purpose: they show
+-- the order and nothing more.
+local STEP        = 0xD8DEE6FF
 
--- Every accent is pale, so a chosen button takes dark text. White on any of
--- them is unreadable.
-local ACCENT_TEXT = 0x1E2226FF
-
--- A button nobody has chosen. Pale enough that it needs the same dark text the
--- accents do, which is why pick() colours every button rather than only the
--- chosen ones.
-local BUTTON      = 0xB1E5E6FF
-
-local NOTE_COL    = 0xCCFBFAFF   -- the notes are the content, not a control
-local ROLL_BG     = 0x171A1CFF   -- inset, darker than the window behind it
+-- The piano roll is drawn rather than composed of widgets, so there is no
+-- default to fall back to and these are chosen. They are greys and one amber,
+-- kept deliberately quiet.
+local NOTE_COL    = 0xDCE3EAFF
+local ROLL_BG     = 0x171A1CFF
 local ROLL_BAR    = 0x454A50FF
 local ROLL_BEAT   = 0x2C3034FF
-local PLAYHEAD    = 0x6FD0FFFF   -- blue, the one thing no accent is
+local PLAYHEAD    = 0xFFC24DFF
 local DIM         = 0xA8AEB6FF
--- The step numbers and the arrows between them. Neutral on purpose: they are
--- there to show the order, and the window has enough colour in it already.
-local STEP        = 0xD8DEE6FF
-local WARN        = 0xE0473AFF   -- a deeper red than the key accent
+local WARN        = 0xE0473AFF
 
--- Shifts a colour towards white or black, so a section needs one colour rather
--- than three. Done with arithmetic rather than bit operators, like the MIDI
--- writer, so it does not care which Lua a given REAPER build carries.
+-- Shifts a colour towards white or black, so the chosen state needs one colour
+-- rather than three. Arithmetic rather than bit operators, like the MIDI
+-- writer, so it does not care which Lua a REAPER build carries - and it keeps
+-- the alpha byte, or ReaImGui is handed a fully transparent colour.
 local function shade(col, amount)
   local a = col % 256
   local b = math.floor(col / 256) % 256
@@ -161,27 +151,21 @@ end
 -- Widgets
 ------------------------------------------------------------------------------
 
--- Which section is being drawn. Everything that highlights reads it, rather
--- than every helper taking a colour it would only pass on.
-local accent = ACC_PANEL
-local function section(col) accent = col end
-
--- Every button in the window comes through here, chosen or not: an unchosen
--- one is teal and a chosen one takes the colour of its section. Both are pale,
--- so both take dark text.
+-- An unchosen button is left entirely alone, so it looks like every other
+-- button in REAPER. A chosen one takes the theme's own pressed blue, which is
+-- the nearest thing Dear ImGui has to a colour that means "this one".
 local function pick(label, selected, width)
-  local bg = selected and accent or BUTTON
-  ImGui.PushStyleColor(ctx, ImGui.Col_Button, bg)
-  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(bg, 0.18))
-  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(bg, -0.18))
-  ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
+  if selected then
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button, SELECTED)
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(SELECTED, 0.18))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(SELECTED, -0.18))
+  end
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  ImGui.PopStyleColor(ctx, 4)
+  if selected then ImGui.PopStyleColor(ctx, 3) end
   return hit
 end
 
--- A section's title carries its colour too, so the grouping reads before any
--- of it is clicked. `n` numbers the step, for the three that are done in order.
+-- `n` numbers the step, for the three that are done in order.
 local function heading(n, text)
   if n then
     ImGui.PushStyleColor(ctx, ImGui.Col_Text, STEP)
@@ -189,9 +173,7 @@ local function heading(n, text)
     ImGui.PopStyleColor(ctx, 1)
     ImGui.SameLine(ctx, 0, 10)
   end
-  ImGui.PushStyleColor(ctx, ImGui.Col_Text, accent)
   ImGui.SeparatorText(ctx, text)
-  ImGui.PopStyleColor(ctx, 1)
 end
 
 -- An arrow down the left margin, from one step to the next. Drawn out of lines
@@ -546,7 +528,6 @@ end
 ------------------------------------------------------------------------------
 
 local function drawKey()
-  section(ACC_KEY)
   heading(1, "Key")
   local r = chooser("root", E.ROOTS, st.root, 0, 44, function(x) return x.name end)
   if r then st.root = r; touched() end
@@ -561,7 +542,6 @@ local function drawKey()
 end
 
 local function drawDegree()
-  section(ACC_DEGREE)
   heading(2, "Scale degree")
   for d = 0, E.scaleLen(st) - 1 do
     if d > 0 then ImGui.SameLine(ctx) end
@@ -580,7 +560,6 @@ end
 
 local function drawActions()
   local block = ui.block
-  section(ACC_PANEL)
   heading(nil, block and block.name or "")
 
   local w = select(1, ImGui.GetContentRegionAvail(ctx))
@@ -640,7 +619,6 @@ local function frame()
   drawKey()
   drawDegree()
 
-  section(ACC_BLOCK)
   heading(3, "Building block")
   for i, name in ipairs(E.CATEGORIES) do
     if i > 1 then ImGui.SameLine(ctx) end
@@ -650,7 +628,6 @@ local function frame()
   end
 
   stepArrow()
-  section(ACC_PANEL)
   ;(panels[st.cat] or panels.Chord)()
 
   ImGui.Dummy(ctx, 0, 6)
@@ -665,13 +642,10 @@ local sectionID, cmdID
 
 local function loop()
   ImGui.SetNextWindowSize(ctx, 1000, 760, ImGui.Cond_FirstUseEver)
+  -- Solid rather than the half-transparent window ReaImGui opens by default;
+  -- the colour itself is left to the theme.
   ImGui.SetNextWindowBgAlpha(ctx, 1.0)
-
-  -- Read by Begin and applied to the window it opens, so pushed before it and
-  -- popped straight after: everything drawn inside is styled normally.
-  ImGui.PushStyleColor(ctx, ImGui.Col_WindowBg, WINDOW_BG)
   local visible, open = ImGui.Begin(ctx, TITLE, true)
-  ImGui.PopStyleColor(ctx, 1)
 
   if visible then
     frame()

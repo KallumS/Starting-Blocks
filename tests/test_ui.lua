@@ -299,69 +299,37 @@ ok(imgui.drawCalls > 0, "and draws the preview roll")
 -- edit and shows up nowhere else, so it is asserted rather than left to be
 -- noticed missing.
 eq(imgui.bgAlpha, 1.0, "the window background is fully opaque, not transparent")
-ok(imgui.windowBg ~= nil, "and it sets a window background colour")
-eq(imgui.windowBg and (imgui.windowBg % 256), 255,
-   "which is itself fully opaque")
 
--- The window is coloured in bands, one per section, so a user who has lost
--- their place can find it by colour. A single frame has something chosen in
--- every band, so every band's colour has to appear in it.
+-- Nothing but a chosen button is coloured now: the window, the unchosen
+-- buttons and the text are Dear ImGui's own. What has to hold is that a chosen
+-- button still looks different from an unchosen one, or the window is unusable.
 do
-  local ACCENTS = { 0xFF7E7EFF, 0xFFA259FF, 0xFFCB56FF, 0xFFEDB9FF }
-  local NAMES   = { "key", "scale degree", "building block", "the panel below" }
-  local UNCHOSEN = 0xB1E5E6FF
-  for i, col in ipairs(ACCENTS) do
-    checks = checks + 1
-    if not imgui.highlights[col] then
-      failures = failures + 1
-      io.write(("FAIL  nothing on screen is highlighted in the %s colour (%08X)\n")
-               :format(NAMES[i], col))
-    end
-  end
-  ok(imgui.highlights[UNCHOSEN], "an unchosen button is teal")
-
   local function count(t)
     local n = 0
     for _ in pairs(t) do n = n + 1 end
     return n
   end
-  -- Four section accents and the one unchosen colour, and nothing else.
-  eq(count(imgui.highlights), #ACCENTS + 1, "and no other colour paints a button")
 
-  -- Hovered and held are shaded rather than picked by hand, so there is one of
-  -- each per button colour and none of them is that colour itself.
-  eq(count(imgui.hovered), #ACCENTS + 1, "one hover shade per button colour")
-  eq(count(imgui.held), #ACCENTS + 1, "one held shade per button colour")
-  for _, col in ipairs(ACCENTS) do
-    ok(not imgui.hovered[col], ("the hover shade of %08X is not %08X"):format(col, col))
-    ok(not imgui.held[col], ("nor is the held shade"):format(col))
-  end
-  ok(not imgui.hovered[UNCHOSEN], "nor is the unchosen one's")
-
-  -- Nothing may be left wearing the default theme: every button goes through
-  -- the same helper, so the count of buttons drawn and of colours pushed for
-  -- them have to agree.
-  eq(imgui.buttonColourPushes, #imgui.buttons,
-     "every button drawn was given a colour")
-  for col in pairs(imgui.hovered) do
-    checks = checks + 1
-    if col % 256 ~= 255 then
-      failures = failures + 1
-      io.write(("FAIL  shading lost the alpha: %08X\n"):format(col))
-    end
+  eq(count(imgui.highlights), 1, "exactly one colour paints a button")
+  eq(count(imgui.hovered), 1, "with one hover shade")
+  eq(count(imgui.held), 1, "and one held shade")
+  for col in pairs(imgui.highlights) do
+    ok(not imgui.hovered[col], "the hover shade is not the colour itself")
+    ok(not imgui.held[col], "nor is the held shade")
+    ok(col % 256 == 255, "and it is fully opaque")
   end
 
-  ok(imgui.drawColours[0xCCFBFAFF], "the MIDI notes are drawn in their own colour")
-  ok(not imgui.highlights[0xCCFBFAFF], "which paints no button")
+  -- An unchosen button pushes no colour at all, so far fewer colours are
+  -- pushed than there are buttons drawn. If everything were being coloured
+  -- again, these would match.
+  ok(imgui.buttonColourPushes < #imgui.buttons,
+     ("unchosen buttons are left to the theme (%d coloured of %d drawn)")
+     :format(imgui.buttonColourPushes, #imgui.buttons))
+  ok(imgui.buttonColourPushes > 0, "and the chosen ones are not")
 
-  -- A pale accent needs dark text on it, or a chosen button cannot be read.
-  local darkest
-  for col in pairs(imgui.textColours) do
-    local r = math.floor(col / 16777216) % 256
-    if not darkest or r < darkest then darkest = r end
-  end
-  ok(darkest and darkest < 64,
-     "a chosen button takes dark text, since every accent is pale")
+  ok(imgui.drawColours[0xDCE3EAFF], "the MIDI notes have a colour of their own")
+  ok(not imgui.windowBg, "the window background is left to the theme")
+  eq(imgui.bgAlpha, 1.0, "though it is still solid rather than transparent")
 end
 
 -- The category buttons are the way in to each panel, so find and click them.
