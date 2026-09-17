@@ -1,111 +1,85 @@
 # Starting Blocks
 
-A JSFX catalogue of musical building blocks, plus the ReaScript that gets them
-into a project.
+A ReaScript that hands you the smallest useful pieces of music and puts them in
+the project. ReaImGui for the window.
 
 ## Shape of it
 
-`jsfx/Starting Blocks.jsfx` is the whole plugin: data tables, generators and
-UI. `reascripts/Starting Blocks Bridge.lua` is a background action that does
-the two things JSFX cannot - insert an item, write a file.
+| | |
+| --- | --- |
+| `reascripts/Starting Blocks.lua` | The window and the wiring. ReaImGui lives only here. |
+| `reascripts/sb_engine.lua` | The music. **No `reaper.` and no `ImGui.` in this file, ever.** |
+| `reascripts/sb_midi.lua` | The MIDI file writer. Pure. |
+| `reascripts/sb_place.lua` | Everything that touches REAPER. |
 
-They talk over `gmem` under the name `StartingBlocks`. The layout is declared
-at the top of both files as `GM_*` / `GM`. **If you change one, change the
-other**; there is no handshake that would catch a mismatch, only a heartbeat
-that says the bridge is alive.
-
-## JSFX constraints worth remembering
-
-These are the reasons the design is the way it is, so they do not get
-rediscovered and "fixed":
-
-- JSFX has **no file write**. `file_open` reads.
-- JSFX has **no access to the REAPER API**. It cannot make an item.
-- JSFX has **no drag-out**. `gfx_getdropfile` is for files dropped *in*.
-- JSFX **can** insert media into a project, but only audio:
-  `export_buffer_to_project()` writes an audio file. There is no MIDI
-  equivalent, so it is no use here.
-- EEL2 has no `if`/`else`, only `cond ? ... : ...`. An assignment is a perfectly
-  good branch - the reference documents `a < 5 ? b = 6 : c = 7;` - so the
-  parentheses this file used to insist on are a style, not a fix. The style is
-  worth keeping for anything longer than one assignment.
-- Functions may take up to 40 parameters, and functions defined in `@init` are
-  visible from every other section. Ones defined in `@gfx` are not.
-- `tempo`, `ts_num`, `ts_denom`, `play_state` and `beat_position` exist **only
-  in `@block` and `@sample`**. `@gfx` cannot read them, which is why `@block`
-  caches them into `cur_tempo` and `bar_beats`.
-- `get_host_placement()` gives the track index the plugin sits on (REAPER
-  6.74+). That is how Insert has a target when no track is selected.
-
-## The bridge
-
-Lua multiple returns are the trap. `TimeMap_GetTimeSigAtTime` returns
-`num, denom, tempo` - there is no `retval` in front of it, and reading one
-there silently wrote 4/2 into every exported file for a while. Check the
-signature in the API docs before destructuring anything, and make the mock in
-`tests/test_bridge.lua` match the real signature rather than the code's
-assumption about it - a mock that agrees with the bug tests nothing.
+That split is the whole reason the tests are worth anything. The engine is pure
+so it can be run and checked; `sb_place.lua` touches REAPER but not ImGui, so a
+mocked `reaper` table is enough to test it. Keep it that way: if a music
+question needs `reaper.`, the answer is to pass the value in, not to reach out.
 
 ## Generators
 
-Every generator writes through `note_add`, which offsets what it is given by
-`gen_ofs`. A generator sizes itself from `gen_len` and reads its degree from
-`gen_deg` - **not** from `sel_degree`, and not from `total_beats`. That is the
-whole of what makes a progression possible: `regenerate()` walks the steps,
-moving `gen_ofs` and `gen_deg`, and calls the same generator each time.
+Each one writes into a segment. `c.notes` is the block so far, `c.ofs` is where
+in the block this piece starts, `c.len` is how long it should be, `c.degree` is
+the degree it is on. Following a progression is nothing more than calling the
+same generator once per step with a different `ofs` and `degree`, which is why
+no generator knows progressions exist. Do not let one start reading `st.degree`
+directly.
 
-`regenerate()` runs on the audio thread, so it must not touch anything `@gfx`
-writes. It used to borrow `sel_degree` and put it back, which was a race with
-the degree buttons; `gen_deg` exists so it does not have to.
-
-Melody sizes the block rather than being sized by it - `melody_beats()` is what
-`regenerate()` asks before calling it.
+Melody sizes the block rather than being sized by it - `M.melodyBeats(st)` is
+what `generate()` asks before calling it.
 
 ## State
 
-There are no sliders. All of it lives in `@serialize`, so the FX window is the
-custom UI and nothing else.
+One plain table describes a block completely, and every engine function is a
+pure function of it. `M.clampState(st)` puts every field back inside its table
+and inside the range of the slider that shows it; the script calls it after
+loading saved settings, and `tests/test_ui.lua` feeds it nonsense to check.
 
-`ser_ver` is 2. Adding a setting means adding a `file_var` line inside a
-`ser_ver >= N` guard and bumping the number, so an older project reads what it
-has and keeps the defaults for the rest. The reset to 2 after the read matters:
-without it an old project would be read as version 1 and then **saved** as
-version 1, dropping everything added since.
+**Slider ranges in the script and the clamps in `clampState` have to agree.**
+ReaImGui refuses a value outside a slider's declared range, so a setting that
+can reach 3 shown by a slider declared -1..1 is a runtime error. The UI test
+checks every slider is handed something inside its own range, but it cannot
+know which of the two is wrong - change both together.
 
 ## Tables
 
-`CH_MASK[i]` is a 32-bit interval mask, one bit per semitone above the root, so
-a chord is one number. `cm()` takes seven slots, so seven notes is the ceiling
-and 31 semitones the reach. It is parallel to `#chord_names` and `#chord_syms`, which
-are `|` separated strings indexed at init. **Three places to edit for one
-chord.** `data_ok` catches a length mismatch at runtime and
-`tests/test_jsfx_data.py` catches a content mismatch before that.
+A chord is one row carrying its own name, symbol and intervals, so it cannot
+half-exist. Under the old JSFX these were three parallel tables and adding a
+chord meant editing all three in step; do not reintroduce that.
 
-Preset progressions are the same shape of problem: `prog_add()` and
-`#prog_names` are parallel. The test reads each preset's name back into degrees
-and checks the table agrees, so a preset labelled `I-vi-IV-V` that does not play
-one fails before it ships.
+Scales and roots are copied from ScaleView for REAPER and `test_engine.lua`
+asserts they still match it. Do not tidy them independently.
 
-Scales and roots are copied from ScaleView for REAPER and the test asserts they
-still match it. Do not "tidy" them independently.
+Every seven-note scale walks the letters in order, so those alone cannot tell
+the `letters` table apart from a plain index. The pentatonic, blues and
+diminished scales are what make it load-bearing, and the spelling tests use
+them for exactly that reason.
 
-## Memory
+## ReaImGui
 
-The local address space is about 8 million words and `gmem` under a named
-`options:gmem=` is 8 million too, so there is no pressure here - the whole map
-fits under 8000.
-
-`@init` lays out one flat `mem` by hand, as named offsets at the top of the
-file. The test checks the regions do not run into each other, but it only knows
-about regions listed in its `SPANS` table - add to both.
+- Load it the documented way: `reaper.ImGui_GetBuiltinPath()`, then
+  `dofile(path .. '/imgui.lua')('0.9')`. Not the old flat `reaper.ImGui_*` API.
+- Every `PushID` needs its `PopID`, every `PushStyleColor(n)` its
+  `PopStyleColor(n)`. The UI test counts them per frame.
+- Button labels are IDs. Two buttons with the same label in one window are the
+  same button unless they are inside different `PushID`s.
+- Colours are `0xRRGGBBAA`.
 
 ## Tests
 
 ```
-python3 tests/test_jsfx_data.py
-python3 tools/run_lua.py tests/test_bridge.lua
-python3 tools/check_jsfx.py "jsfx/Starting Blocks.jsfx"
-python3 tools/blocks_md.py > docs/BLOCKS.md
+tools/test.sh
 ```
 
-`docs/BLOCKS.md` is generated. Do not hand-edit it.
+`tests/test_ui.lua` runs the real script against a mocked ReaImGui whose
+`__index` raises on anything it does not have, so calling a ReaImGui function
+that does not exist fails here rather than in REAPER. It clicks every button in
+every panel, drives every slider to both ends, and reloads the script on top of
+its own saved settings.
+
+When you add a control, nothing needs to be added to the test - the sweep finds
+it. When you add a ReaImGui function, add it to the mock.
+
+`docs/BLOCKS.md` is generated by `tools/blocks_md.lua`, which reads the engine's
+tables directly. Do not hand-edit it; `tools/test.sh` fails if it is stale.

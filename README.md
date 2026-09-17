@@ -9,9 +9,11 @@ key. Pick a degree of it. Then pull in the block you want and keep going.
 
 | | |
 | --- | --- |
-| `jsfx/Starting Blocks.jsfx` | The catalogue and the UI. Makes no sound; everything it produces leaves as MIDI. |
-| `reascripts/Starting Blocks Bridge.lua` | The half that touches REAPER: inserting a block on a track, and writing one to disk as a `.mid`. |
-| `docs/BLOCKS.md` | Every block it can make, and exactly what each one is. Generated from the JSFX. |
+| `reascripts/Starting Blocks.lua` | The script you run. The window, and getting blocks into the project. |
+| `reascripts/sb_engine.lua` | The music: keys, scales, chords, progressions, generators. No REAPER in it. |
+| `reascripts/sb_midi.lua` | Writing a block out as a standard MIDI file. |
+| `reascripts/sb_place.lua` | Everything that touches REAPER: inserting, exporting, auditioning. |
+| `docs/BLOCKS.md` | Every block it can make. Generated from the engine. |
 
 The keys, scales and note spelling are
 [ScaleView for REAPER](https://github.com/KallumS/ScaleView-for-Reaper)'s,
@@ -20,15 +22,15 @@ notes. F# major spells its seventh E#, here as there.
 
 ## Installing
 
-Needs REAPER 6.74 or newer, for `get_host_placement()`.
+1. Install **ReaImGui** with ReaPack, from the ReaTeam Extensions repository.
+2. Put the four files in `reascripts/` together in one folder under
+   `<REAPER resource path>/Scripts/`. Actions -> Show REAPER resource path will
+   find it.
+3. Actions -> Show action list -> New action -> Load ReaScript, and pick
+   `Starting Blocks.lua`.
 
-1. Put `Starting Blocks.jsfx` in `<REAPER resource path>/Effects/`.
-   Actions → Show REAPER resource path will find it.
-2. Put `Starting Blocks Bridge.lua` in `<REAPER resource path>/Scripts/` and
-   add it under Actions → Show action list → New action → Load ReaScript.
-3. Add the JSFX to a track: FX → JS → Starting Blocks.
-4. Run the bridge action once. It is a toggle, so running it again stops it.
-   The plugin's header says **Bridge connected** while it is up.
+It is a toggle, so running the action again closes the window. Escape closes it
+too.
 
 ## Using it
 
@@ -39,11 +41,27 @@ minor reads `III`.
 
 Then pick what kind of block you want - **Chord**, **Arpeggio**, **Run**,
 **Melody**, **Bass**, **Drums**, **Progression** - and only that block's
-options are on screen. The piano roll underneath is whatever you have
-currently built.
+options are on screen. The piano roll underneath is whatever you have currently
+built.
 
 Arpeggios and bass notes read the chord you set in the Chord tab, so there is
 one chord picker rather than four.
+
+## Getting a block out
+
+- **Place with the mouse** picks the block up. Move over the arrange and click:
+  it lands on the track under the pointer, at the time under the pointer,
+  snapped to the grid if Snap is on. This is the drag-and-drop of the whole
+  idea. Click Place again to put it back down without using it.
+- **Insert at cursor** puts it on the selected track at the edit cursor.
+- **Export .mid** writes it into `<REAPER resource path>/Starting Blocks/`.
+  Point the Media Explorer at that folder and every block you export is one
+  drag away from the arrange.
+- **Audition** plays it through the virtual keyboard, so a record-armed and
+  monitored track sounds it. A deferred script wakes about thirty times a
+  second, so this is a preview rather than a performance - a note lands on the
+  nearest wake-up, not on the sample. Anything that needs to be exact wants the
+  block in the project, where REAPER plays it properly.
 
 ## Linking blocks together
 
@@ -59,7 +77,7 @@ its own.
 Then turn on **Follow progression** in the Chord, Arpeggio, Run or Bass panel.
 That block stops sitting on one degree and is laid out across the whole
 progression instead: an arpeggio follows the changes rather than repeating, a
-bass line walks them, a run starts from a different place each bar. One drag
+bass line walks them, a run starts from a different place each bar. One drop
 now gives you four bars that move.
 
 Melody and drums do not offer it, on purpose. A step or a leap is a smaller
@@ -69,55 +87,29 @@ Clicking a degree at the top while a block is following turns following off and
 uses that degree - there is no dead control to notice and no mode to get stuck
 in.
 
-## Getting a block out
-
-Three ways, and they are all the same block:
-
-- **Audition** plays it out of the plugin's MIDI output at the project tempo.
-  Nothing else in the plugin makes a sound, so whatever is after it on the
-  track is what you hear. With a track record-armed you can record it.
-- **Insert at cursor** puts it on the selected track at the edit cursor, as one
-  MIDI item named after the block. One undo point. With nothing selected it
-  falls back to the track the plugin itself is on, which the JSFX finds with
-  `get_host_placement()` and passes over.
-- **Export .mid** writes it into `<REAPER resource path>/Starting Blocks/`.
-  Point the Media Explorer at that folder once and from then on every block you
-  export is one drag away from the arrange.
-
-### Why there is a second script
-
-JSFX has no way to write a file, and no access to the REAPER API, and no way to
-start a drag out of its own window - none of those are in the JSFX API at all.
-So the plugin can build a block and play it, but it cannot put one in your
-project by itself.
-
-The bridge is how it gets there. The plugin writes the finished block into
-`gmem` and raises a request; the bridge, running as a background action, picks
-it up and does the part that needs REAPER. That is why **Insert** and
-**Export** need it running and **Audition** does not, and why "drag and drop"
-here means dragging the exported `.mid` in from the Media Explorer rather than
-out of the plugin window.
-
 ## Checking it
 
 ```
-python3 tests/test_jsfx_data.py        # the catalogue is what it says it is
-python3 tools/run_lua.py tests/test_bridge.lua   # or: lua5.4 tests/test_bridge.lua
-python3 tools/check_jsfx.py "jsfx/Starting Blocks.jsfx"
+tools/test.sh
 ```
 
-`test_jsfx_data.py` decodes every chord out of its bitmask and matches it
-against the semitones it is meant to hold, matches the scales against
-ScaleView's, and checks that the JSFX's hand-laid memory map has no two regions
-running into each other. `test_bridge.lua` runs the real bridge against mocked
-REAPER calls and reads its MIDI files back with a separate parser.
-`check_jsfx.py` is a structural pass over the EEL2: brackets, and every
-function defined before it is called and called with the right number of
-arguments.
+| | |
+| --- | --- |
+| `tests/test_engine.lua` | The generators, by running them. Every direction and ordering, the progressions, the spelling, the whole catalogue. |
+| `tests/test_midi.lua` | The MIDI writer, read back by a parser that is not itself. |
+| `tests/test_place.lua` | Inserting, placing at the mouse, exporting and auditioning, against a mocked REAPER. |
+| `tests/test_ui.lua` | Runs the real script headlessly against a mocked ReaImGui, clicking every control in every panel. |
 
-There is no EEL2 interpreter outside REAPER, so the generators themselves -
-what a converging arpeggio actually comes out as - are checked in REAPER and by
-reading, not by a test here.
+This is the part that changed most when the plugin became a script. As a JSFX
+the engine was EEL2, which only runs inside REAPER, so what a converging
+arpeggio actually came out as could only be checked by reading it. In Lua it
+can be asked. `tests/test_engine.lua` is that question, 389 times.
+
+`tests/test_ui.lua` cannot tell you the window looks right. It can tell you
+that every panel draws, that no call reaches a ReaImGui function that does not
+exist, that every push is matched by its pop, that clicking any control leaves
+the state somewhere the engine can still generate from, and that settings saved
+by a version that knew different tables do not index off the end of these ones.
 
 ## Notes on the catalogue
 
@@ -126,26 +118,30 @@ reading, not by a test here.
 The 78 chords follow
 [Wikipedia's list of chords](https://en.wikipedia.org/wiki/List_of_chords),
 checked against that page's pitch-class column. Two of its entries are not
-here:
-
-- The **Magic chord**'s cell runs two voicings together with no separator, so
-  there is no reading of it that is not a guess.
-- The **Northern lights chord** is eleven notes spread over three octaves. A
-  chord here is a 32-bit interval mask fed by seven slots, so it does not fit.
+here: the **Magic chord**'s cell runs two voicings together with no separator,
+and the **Northern lights chord** is eleven notes over three octaves. Two named
+chords are voiced rather than reduced - the list gives the **Tristan chord** as
+the pitch-class set `0 3 6 10`, which makes it a half-diminished seventh and
+indistinguishable from one; here it is `0 6 10 15`, F-B-D#-G# as it stands in
+the prelude.
 
 Most of what looks missing from that page is not a chord shape at all. Tonic,
 Supertonic, Mediant, Subdominant, Dominant, Submediant, Subtonic, the parallels
-and counter-parallels, Secondary dominant, Secondary leading-tone, Leading-tone
-triad, Psalms - all of those are one of three or four triads under a name that
-says **which degree of the key it is built on**. That is the other axis of this
-plugin, not a row in its chord table: pick the degree, and the Diatonic family
-gives you the chord that degree actually carries.
+and counter-parallels, Secondary dominant, Leading-tone triad - all of those
+are one of three or four triads under a name that says **which degree of the
+key it is built on**. That is the other axis of this script, not a row in its
+chord table.
 
-Two named chords are voiced rather than reduced. The list gives the **Tristan
-chord** as the pitch-class set `0 3 6 t`, which makes it a half-diminished
-seventh and indistinguishable from one; here it is `0 6 10 15`, F-B-D#-G# as it
-stands in the prelude. **Petrushka** is the same pitch classes as the list's
-`0 1 4 6 7 t`, stacked as the two triads it is made of.
+## It used to be a JSFX
 
-Drum patterns are written on a 4/4 grid. In another time signature the hits
-past the end of the bar are dropped rather than squeezed in.
+Version 1 was a JSFX plus a companion ReaScript. It had to be: JSFX cannot
+write a file, cannot reach the REAPER API and cannot start a drag, so the
+plugin built blocks and a bridge script put them in the project, the two of
+them talking over shared memory.
+
+None of that is needed here. A script has the API, so there is no bridge and no
+protocol to keep in step. It can ask what track the mouse is over and what time
+it is pointing at, which is better than dragging a file because it snaps and
+names the item. And the engine is ordinary Lua, so it can be tested.
+
+The JSFX is in the history if you want it: `git log -- 'jsfx/Starting Blocks.jsfx'`.

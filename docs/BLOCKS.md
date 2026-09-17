@@ -2,9 +2,10 @@
 
 Every block Starting Blocks can make, and exactly what each one is.
 
-**This file is generated.** Run `python3 tools/blocks_md.py > docs/BLOCKS.md`
-to rebuild it; it is read straight out of `jsfx/Starting Blocks.jsfx`, so it
-cannot drift from what the plugin actually does.
+**This file is generated.** Run
+`python3 tools/run_lua.py tools/blocks_md.lua > docs/BLOCKS.md` to rebuild
+it. It loads `reascripts/sb_engine.lua` and reads its tables, so it cannot
+drift from what the script actually does.
 
 ## Keys
 
@@ -57,10 +58,10 @@ major is `vii°`, the III of natural minor is `III`.
 | 6 | Submediant |
 | 7 | Leading Tone |
 
-Only the seven-note scales have these names. In a pentatonic or a
-diminished scale the degrees are simply numbered. The seventh is called a
-**Leading Tone** only when it really is a semitone below the tonic;
-otherwise it is a **Subtonic**.
+Only the seven-note scales have these names. In a pentatonic or a diminished
+scale the degrees are simply numbered. The seventh is called a **Leading
+Tone** only when it really is a semitone below the tonic; otherwise it is a
+**Subtonic**.
 
 ## Blocks
 
@@ -193,13 +194,13 @@ they fit the key. Semitones are from the chord's root.
 | `So What` | So What | 0 5 10 15 19 |
 | `Dream` | Dream | 0 5 6 7 |
 | `Vienna` | Viennese Trichord | 0 1 6 |
+| `Vienna II` | Viennese Trichord II | 0 6 7 |
 | `Napoleon` | Ode-to-Napoleon | 0 1 4 5 8 9 |
+| `Elektra` | Elektra | 0 7 9 13 16 |
+| `Farben` | Farben | 0 8 11 16 21 |
 | `It+6` | Italian Sixth | 0 4 10 |
 | `Fr+6` | French Sixth | 0 4 6 10 |
 | `Ger+6` | German Sixth | 0 4 7 10 |
-| `Elektra` | Elektra | 0 7 9 13 16 |
-| `Farben` | Farben | 0 8 11 16 21 |
-| `Vienna II` | Viennese Trichord II | 0 6 7 |
 
 Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three
 octaves either way.
@@ -207,22 +208,14 @@ octaves either way.
 ### Arpeggios
 
 The chord from the Chord tab, one note at a time. Two ways to order it, and
-you pick one or the other:
+you pick one or the other.
 
-**Directions** lay every chord tone across the octave span out in pitch order
-and then walk them:
+**Directions** lay every chord tone across the octave span out in pitch
+order and then walk them: Up, Down, Up/Down, Down/Up, Random, Converge, Diverge.
 
-- **Up**
-- **Down**
-- **Up/Down**
-- **Down/Up**
-- **Random**
-- **Converge**
-- **Diverge**
-
-`Random` is a shuffle rather than free picks, so every tone of the chord
-gets its turn before any of them repeats. `Converge` works inwards from the
-outside, `Diverge` outwards from the middle.
+`Random` is a shuffle rather than free picks, so every tone gets its turn
+before any of them repeats. `Converge` works inwards from the outside,
+`Diverge` outwards from the middle.
 
 **Fixed orders** put the lowest three voices in a set order. Anything above
 them - a seventh, a ninth, an eleventh, a thirteenth - follows in order, and
@@ -232,14 +225,14 @@ the whole cell climbs an octave at a time:
 
 ### Runs
 
-The same seven directions, but over the scale rather than the chord, starting
-on the degree you chose and running up to four octaves. A one-octave run is
-inclusive of the octave above, so it lands back on the note it started from.
-
+The same seven directions, but over the scale rather than the chord,
+starting on the degree you chose and running up to four octaves. A
+one-octave run is inclusive of the octave above, so it lands back on the
+note it started from.
 
 ### Melody
 
-The two smallest moves a melody can make. An interval, a direction, and a
+The two smallest moves a melody can make. An interval, a direction and a
 shape:
 
 | interval | |
@@ -259,7 +252,8 @@ shape:
 | Fill | every scale note in between |
 
 All of it is diatonic: a 3rd is two scale steps, whatever that is in
-semitones in this key.
+semitones in this key, and an octave is however many steps this scale takes
+to get there - five in a pentatonic, seven in a major scale.
 
 ### Bass
 
@@ -285,25 +279,25 @@ pads in anything that follows the map.
 | Mid Tom | 47 |
 | High Tom | 50 |
 
-| pattern | where the hits fall |
+| pattern | where the hits fall, in beats from the start of the bar |
 | --- | --- |
-| One Hit | 1 |
-| Four on the Floor | 1, 2, 3, 4 |
-| One & Three | 1, 3 |
-| Two & Four | 2, 4 |
-| And of Two | the & of 2 |
-| Two Step | 1, the & of 2, 4 |
-| Off-beats | the & of every beat |
-| Every 8th | all eight eighths |
-| Every 16th | all sixteen sixteenths |
+| One Hit | 0 |
+| Four on the Floor | 0, 1, 2, 3 |
+| One & Three | 0, 2 |
+| Two & Four | 1, 3 |
+| And of Two | 1.5 |
+| Two Step | 0, 1.5, 3 |
+| Off-beats | 0.5, 1.5, 2.5, 3.5 |
+| Every 8th | 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5 |
+| Every 16th | 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75 |
 
 These are written on a 4/4 grid. In a shorter bar the hits past the end of
 it are dropped rather than squeezed in.
 
 ### Progressions
 
-A progression is a sequence of scale degrees - up to twelve of them, each
-lasting one, two or four bars. It is the one block that is made of other
+A progression is a sequence of scale degrees - up to 12 of
+them, each lasting one, two or four bars. It is the one block made of other
 blocks, and the only one that changes what the rest of them do.
 
 On its own tab it plays the chord on each step. The switch that matters is
@@ -327,7 +321,7 @@ a chord change, and a drum has no degree to follow.
 
 Degrees are numbered from 1 here for reading; the numerals on screen are
 cased for the scale you are in, so `I-V-vi-IV` in C major shows as
-`I - V - vi - IV` and the same preset in C minor shows as `i - v - VI - iv`.
+`I - V - vi - IV` and the same preset in A minor shows as `i - v - VI - iv`.
 A progression written for seven degrees folds into a shorter scale rather
 than running off the end of it.
 
@@ -335,7 +329,7 @@ than running off the end of it.
 
 | rate | 1/64 | 1/32 | 1/16 | 1/8 | 1/4 | 1/2 | 1/1 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| quarter notes | 0.0625 | 0.125 | 0.25 | 0.5 | 1.0 | 2.0 | 4.0 |
+| quarter notes | 0.0625 | 0.125 | 0.25 | 0.5 | 1 | 2 | 4 |
 
 Each one can be straight, triplet, dotted - a triplet is two thirds of the straight value, a dotted note one and a half.
 
