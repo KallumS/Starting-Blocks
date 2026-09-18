@@ -181,27 +181,20 @@ place: the step colour is pushed as a text colour nowhere but on the numbers.
 
 ## Colour
 
-**After the Batman of Detective Comics #327** (May 1964), the issue where
-Schwartz and Infantino put the yellow oval on the chest: a cowl-dark ground,
-the suit's light grey raised off it, and that yellow for the one thing that
-is on.
+Three colours: a dark grey ground, a light grey for the controls raised off
+it, and one yellow for whatever is switched on. **These are settled** - they
+were chosen deliberately and signed off, so treat a change to any of the three
+values as a change of mind rather than a tidy-up.
 
-Unlike the Live 8 scheme it replaced - which was a likeness built from a
-described character, because Live's `.ask` values are not published - two of
-these three come from **the printing**, which is as close to actual as a comic
-gets. DC publishes no hex values either, but the press does:
+**Every grey in `THEME` is blue-shifted**, R < G < B all the way down the ramp.
+It is the easiest thing in that table to undo by accident: a neutral grey looks
+perfectly correct in a diff and only reads as flat once it is on screen next to
+the yellow. The greys in this window were neutral for a long time, which is
+exactly why the mistake is an easy one to make twice.
 
-- the oval is **100% process yellow and nothing else**, CMYK 0/0/100/0, which
-  converts to `#FFF200`. That is where the circulated "Batman yellow" comes
-  from, and it is why the accent is that exact value rather than a hand-picked
-  gold.
-- the suit's grey was a **screen of cyan and magenta** - a four-colour press
-  had no grey ink - so it carries a blue cast. Every grey in `THEME` is
-  blue-shifted, R < G < B all the way down. **A neutral grey is the one thing
-  that would be wrong here**, and a neutral grey is what every grey in this
-  window used to be, so this is easy to undo by accident.
-- the cape and cowl are the dark end of that same ramp rather than flat black,
-  because they were printed with blue highlights.
+The dark end of the ramp is the ground and the roll, and it stops short of
+black on purpose - flat black under a saturated yellow reads as a hole rather
+than a surface.
 
 `THEME` is a list of `{ "Col_Name", 0xRRGGBBAA }` pushed before `Begin` and
 popped after `End` - **outside the `visible` test**, because a push always
@@ -211,8 +204,8 @@ A `Col_` name that does not exist is a hard error in REAPER, and the mock's
 
 **The buttons are lighter than the chrome, which is new.** Every earlier scheme
 here raised the buttons a shade off a mid-grey and lettered them in the
-window's own light text; this one puts the suit's light grey on a dark ground,
-so the light text would vanish. `pick()` therefore pushes `INK` for **every**
+window's own light text; this one puts a light grey on a dark ground, so the
+light text would vanish. `pick()` therefore pushes `INK` for **every**
 button, chosen or not - the first scheme here where an unchosen button needs a
 text colour of its own. Drop that push and the grey buttons go unreadable while
 the chosen one still looks fine, which is exactly the failure a frame-wide

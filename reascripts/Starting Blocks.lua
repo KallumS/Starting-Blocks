@@ -45,29 +45,22 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
--- After the Batman of Detective Comics #327 (May 1964), the issue where
--- Schwartz and Infantino put the yellow oval on the chest: a cowl-dark ground,
--- the suit's light grey raised off it, and that yellow for the one thing that
--- is on.
+-- Three colours: a dark grey ground, a light grey for the controls raised off
+-- it, and one yellow for whatever is switched on.
 --
--- Two of the three colours are the printing, not a brand guide, which is as
--- close to "actual" as this gets. DC publishes no hex values, but the comic was
--- printed in four colours, and:
+-- **Every grey here is blue-shifted** - R < G < B, all the way down the ramp.
+-- That is deliberate and it is the easiest thing in this table to undo by
+-- accident, because a neutral grey looks correct in a diff and only reads as
+-- flat next to the yellow. The greys in this window were neutral for a long
+-- time; they are not any more.
 --
---   * the oval is 100% process yellow and nothing else - CMYK 0/0/100/0, which
---     converts to #FFF200. That is where the circulated "Batman yellow" comes
---     from.
---   * the suit's grey is a screen of cyan and magenta, so it is a **cool** grey
---     with a blue cast, not a neutral one. Neutral grey is the one thing that
---     would be wrong here, and it is what every grey in this table used to be.
---
--- So the whole ramp below is blue-shifted: R < G < B in every grey. The cape
--- and cowl are the dark end of it rather than pure black, because they were
--- printed with blue highlights and never as flat ink.
+-- The dark end of the ramp is the ground and the roll, and it stops short of
+-- black: flat black under a saturated yellow reads as a hole rather than a
+-- surface.
 local THEME = {
   { "Col_Text",              0xDDE1E7FF },
   { "Col_TextDisabled",      0x8A919CFF },
-  { "Col_WindowBg",          0x23272EFF },   -- the cowl: dark grey, cool
+  { "Col_WindowBg",          0x23272EFF },   -- the chrome: dark grey, cool
   { "Col_PopupBg",           0x1B1F25FF },
   { "Col_Border",            0x14171CFF },
   { "Col_FrameBg",           0x1A1D23FF },   -- anything sunk into the chrome
@@ -76,7 +69,7 @@ local THEME = {
   { "Col_TitleBg",           0x1B1F25FF },
   { "Col_TitleBgActive",     0x23272EFF },
   { "Col_TitleBgCollapsed",  0x1B1F25FF },
-  { "Col_Button",            0xA9AFBAFF },   -- the suit: light grey, raised
+  { "Col_Button",            0xA9AFBAFF },   -- the controls: light grey, raised
   { "Col_ButtonHovered",     0xC0C6CFFF },
   { "Col_ButtonActive",      0x8F96A2FF },
   { "Col_CheckMark",         0xFFF200FF },
@@ -89,8 +82,8 @@ local THEME = {
   { "Col_ScrollbarGrabActive",  0xA9AFBAFF },
 }
 
--- The oval. Process yellow, spent on what is switched on - and, unlike every
--- scheme this window has worn before it, on the notes too.
+-- The accent, spent on what is switched on - and, unlike every scheme this
+-- window has worn before it, on the notes too.
 local SELECTED    = 0xFFF200FF
 
 -- Ink. The buttons are lighter than the chrome now, so the text on one has to
@@ -101,8 +94,8 @@ local INK         = 0x14171CFF
 -- The step numbers. Neutral: they show the order and nothing more.
 local STEP        = 0xBFC5CEFF
 
--- The roll is drawn rather than composed of widgets. Night at the dark end of
--- the same cool ramp, and the notes in the oval's yellow.
+-- The roll is drawn rather than composed of widgets. The dark end of the same
+-- cool ramp, with the notes in the accent.
 local NOTE_COL    = SELECTED
 local ROLL_BG     = 0x111419FF
 local ROLL_BAR    = 0x3A404AFF
@@ -204,9 +197,9 @@ local function pushTheme()
 end
 local function popTheme() ImGui.PopStyleColor(ctx, #THEME) end
 
--- An unchosen button wears the theme's grey. A chosen one takes the oval's
--- yellow. Either way the text on it goes to INK: both are far lighter than the
--- chrome, so the window's own light text would vanish on them.
+-- An unchosen button wears the theme's grey. A chosen one takes the accent.
+-- Either way the text on it goes to INK: both are far lighter than the chrome,
+-- so the window's own light text would vanish on them.
 local function pick(label, selected, width)
   local pushed = 1
   if selected then

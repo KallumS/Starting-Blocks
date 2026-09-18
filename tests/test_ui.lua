@@ -341,7 +341,7 @@ do
     return n
   end
 
-  local ACCENT = 0xFFF200FF    -- the yellow oval, CMYK 0/0/100/0
+  local ACCENT = 0xFFF200FF    -- what is switched on, and the notes
   local INK    = 0x14171CFF
 
   -- How light a colour is, roughly. Enough to tell "the text will be read off
@@ -355,7 +355,7 @@ do
 
   -- Two colours paint buttons: the theme's, and the accent a chosen one takes.
   eq(count(imgui.highlights), 2, "the theme's button colour and the chosen one")
-  ok(imgui.highlights[ACCENT], "a chosen button takes the oval's yellow")
+  ok(imgui.highlights[ACCENT], "a chosen button takes the accent")
   eq(count(imgui.hovered), 2, "each with a hover shade")
   eq(count(imgui.held), 2, "and a held shade")
   for col in pairs(imgui.highlights) do
@@ -398,7 +398,7 @@ do
   -- from reading as a selection is no longer its hue but its ground: the roll
   -- is drawn far darker than the chrome the buttons sit on. That is the thing
   -- worth holding, so that is what is checked.
-  ok(imgui.drawColours[ACCENT], "the notes are drawn in the oval's yellow too")
+  ok(imgui.drawColours[ACCENT], "the notes are drawn in the accent too")
   local roll
   for col in pairs(imgui.drawColours) do
     if not roll or lum(col) < lum(roll) then roll = col end
