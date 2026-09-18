@@ -11,7 +11,7 @@
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Starting-Blocks
- * Version:        2.2
+ * Version:        2.3
  * Provides:
  *   sb_engine.lua
  *   sb_midi.lua
@@ -45,25 +45,52 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
--- Back to Dear ImGui's own palette. The one thing it has no colour for is a
--- button that is chosen, because a plain button has no chosen state, so that
--- borrows the theme's own pressed blue and nothing else is overridden.
-local SELECTED    = 0x0F87FAFF
+-- After Ableton Live 8's default theme: a mid-dark neutral grey chrome meant
+-- to sit quietly under brightly coloured clips, controls raised a shade off it,
+-- and one warm accent for whatever is on. Built from that description rather
+-- than from the theme file - Live's .ask values are not published - so it is a
+-- likeness, not a match.
+local THEME = {
+  { "Col_Text",              0xE4E4E4FF },
+  { "Col_TextDisabled",      0x9C9C9CFF },
+  { "Col_WindowBg",          0x4A4A4AFF },   -- the chrome
+  { "Col_PopupBg",           0x3C3C3CFF },
+  { "Col_Border",            0x363636FF },
+  { "Col_FrameBg",           0x383838FF },   -- anything sunk into the chrome
+  { "Col_FrameBgHovered",    0x424242FF },
+  { "Col_FrameBgActive",     0x464646FF },
+  { "Col_TitleBg",           0x3C3C3CFF },
+  { "Col_TitleBgActive",     0x4A4A4AFF },
+  { "Col_TitleBgCollapsed",  0x3C3C3CFF },
+  { "Col_Button",            0x5E5E5EFF },   -- raised a shade off the chrome
+  { "Col_ButtonHovered",     0x6E6E6EFF },
+  { "Col_ButtonActive",      0x7A7A7AFF },
+  { "Col_CheckMark",         0xD7A93CFF },
+  { "Col_SliderGrab",        0x8A8A8AFF },
+  { "Col_SliderGrabActive",  0xD7A93CFF },
+  { "Col_Separator",         0x5A5A5AFF },
+  { "Col_ScrollbarBg",       0x3A3A3AFF },
+  { "Col_ScrollbarGrab",     0x6A6A6AFF },
+  { "Col_ScrollbarGrabHovered", 0x7A7A7AFF },
+  { "Col_ScrollbarGrabActive",  0x8A8A8AFF },
+}
 
--- The step numbers and the arrows between them. Neutral on purpose: they show
--- the order and nothing more.
-local STEP        = 0xD8DEE6FF
+-- The warm accent. Live spends it on what is switched on, and so does this: a
+-- chosen button and nothing else.
+local SELECTED    = 0xD7A93CFF
 
--- The piano roll is drawn rather than composed of widgets, so there is no
--- default to fall back to and these are chosen. They are greys and one amber,
--- kept deliberately quiet.
-local NOTE_COL    = 0xDCE3EAFF
-local ROLL_BG     = 0x171A1CFF
-local ROLL_BAR    = 0x454A50FF
-local ROLL_BEAT   = 0x2C3034FF
-local PLAYHEAD    = 0xFFC24DFF
-local DIM         = 0xA8AEB6FF
-local WARN        = 0xE0473AFF
+-- The step numbers. Neutral: they show the order and nothing more.
+local STEP        = 0xC8C8C8FF
+
+-- The roll is drawn rather than composed of widgets. Dark like Live's MIDI
+-- editor, with the notes in a cool tone so they never read as a selection.
+local NOTE_COL    = 0xA8D8E8FF
+local ROLL_BG     = 0x2E2E2EFF
+local ROLL_BAR    = 0x5A5A5AFF
+local ROLL_BEAT   = 0x3A3A3AFF
+local PLAYHEAD    = 0xF2F2F2FF
+local DIM         = 0x9C9C9CFF
+local WARN        = 0xD2483FFF
 
 -- Shifts a colour towards white or black, so the chosen state needs one colour
 -- rather than three. Arithmetic rather than bit operators, like the MIDI
@@ -151,17 +178,24 @@ end
 -- Widgets
 ------------------------------------------------------------------------------
 
--- An unchosen button is left entirely alone, so it looks like every other
--- button in REAPER. A chosen one takes the theme's own pressed blue, which is
--- the nearest thing Dear ImGui has to a colour that means "this one".
+-- The whole theme goes on before Begin and comes off after End, so it covers
+-- the window itself as well as everything in it.
+local function pushTheme()
+  for _, c in ipairs(THEME) do ImGui.PushStyleColor(ctx, ImGui[c[1]], c[2]) end
+end
+local function popTheme() ImGui.PopStyleColor(ctx, #THEME) end
+
+-- An unchosen button wears the theme. A chosen one takes the warm accent, and
+-- dark text with it, because the accent is far lighter than the chrome.
 local function pick(label, selected, width)
   if selected then
     ImGui.PushStyleColor(ctx, ImGui.Col_Button, SELECTED)
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(SELECTED, 0.18))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(SELECTED, -0.18))
+    ImGui.PushStyleColor(ctx, ImGui.Col_Text, 0x2A2A2AFF)
   end
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  if selected then ImGui.PopStyleColor(ctx, 3) end
+  if selected then ImGui.PopStyleColor(ctx, 4) end
   return hit
 end
 
@@ -176,23 +210,11 @@ local function heading(n, text)
   ImGui.SeparatorText(ctx, text)
 end
 
--- An arrow down the left margin, from one step to the next. Drawn out of lines
--- rather than set as a character, because the font a REAPER build hands
--- ReaImGui is not guaranteed to have an arrow in it, and a missing glyph is a
--- box. Lines always draw.
-local ARROW_H = 22
-local function stepArrow()
-  local x, y = ImGui.GetCursorScreenPos(ctx)
-  ImGui.Dummy(ctx, 16, ARROW_H)
-
-  local dl   = ImGui.GetWindowDrawList(ctx)
-  local cx   = x + 5                       -- under the step number above it
-  local top  = y + 3
-  local tip  = y + ARROW_H - 4
-  ImGui.DrawList_AddLine(dl, cx, top, cx, tip, STEP, 2)
-  ImGui.DrawList_AddLine(dl, cx - 5, tip - 6, cx, tip, STEP, 2)
-  ImGui.DrawList_AddLine(dl, cx + 5, tip - 6, cx, tip, STEP, 2)
-end
+-- The space between one numbered step and the next. There were arrows drawn in
+-- here; taking them out and leaving the gap turned out to separate the steps
+-- just as well, with nothing on screen to read.
+local STEP_GAP = 22
+local function stepGap() ImGui.Dummy(ctx, 16, STEP_GAP) end
 
 local function tip(text)
   if text and ImGui.IsItemHovered(ctx) then ImGui.SetTooltip(ctx, text) end
@@ -538,7 +560,7 @@ local function drawKey()
     st.degree = math.min(st.degree, E.scaleLen(st) - 1)
     touched()
   end
-  stepArrow()
+  stepGap()
 end
 
 local function drawDegree()
@@ -555,7 +577,7 @@ local function drawDegree()
   end
   ImGui.SameLine(ctx, 0, 16)
   dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
-  stepArrow()
+  stepGap()
 end
 
 local function drawActions()
@@ -627,7 +649,7 @@ local function frame()
     ImGui.PopID(ctx)
   end
 
-  stepArrow()
+  stepGap()
   ;(panels[st.cat] or panels.Chord)()
 
   ImGui.Dummy(ctx, 0, 6)
@@ -642,15 +664,15 @@ local sectionID, cmdID
 
 local function loop()
   ImGui.SetNextWindowSize(ctx, 1000, 760, ImGui.Cond_FirstUseEver)
-  -- Solid rather than the half-transparent window ReaImGui opens by default;
-  -- the colour itself is left to the theme.
+  -- Solid rather than the half-transparent window ReaImGui opens by default.
   ImGui.SetNextWindowBgAlpha(ctx, 1.0)
+  pushTheme()
   local visible, open = ImGui.Begin(ctx, TITLE, true)
-
   if visible then
     frame()
     ImGui.End(ctx)
   end
+  popTheme()   -- outside the visible test: a push always needs its pop
   if open and not ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then
     reaper.defer(loop)
   end

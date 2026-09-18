@@ -38,9 +38,7 @@ function ImGui.Text(_, t)
   -- A lone digit just before a heading is that heading's step number.
   if t:match("^%d$") then pendingStep = tonumber(t) else push{ k = "text", t = t } end
 end
-function ImGui.Dummy(_, w, h)
-  if h == 22 then push{ k = "arrow" } else push{ k = "gap", h = h } end
-end
+function ImGui.Dummy(_, w, h) push{ k = "gap", h = h } end
 function ImGui.SameLine() push{ k = "same" } end
 function ImGui.NewLine() end
 function ImGui.PushID() end
@@ -131,7 +129,10 @@ local function split(list)
       if heads == 4 then where = actions end
     end
     where[#where + 1] = op
-    if where == header and op.k == "arrow" and heads == 3 then where = panel end
+    -- The wide gap after the third step is where the header ends.
+    if where == header and op.k == "gap" and op.h == 22 and heads == 3 then
+      where = panel
+    end
   end
   return header, panel, actions
 end

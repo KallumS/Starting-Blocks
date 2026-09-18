@@ -160,46 +160,45 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 ## Finding your way down the window
 
 The three things done in order - **1 Key, 2 Scale degree, 3 Building block** -
-are numbered, with an arrow from each down to the next and from the third into
-the block's options. The options and the buttons under them are not a step:
-they are what you do once the three are chosen.
+are numbered, with a gap after each. The options and the buttons under them are
+not a step: they are what you do once the three are chosen.
 
-The numbers and arrows are **neutral, not a section colour**, and the test
-holds that in place. The colour bands below were felt to have gone too far, so
-anything added for wayfinding since carries no colour of its own.
+There were arrows drawn in those gaps. Taking them out and **leaving the gap**
+separated the steps just as well with nothing on screen to read, which is the
+better answer. The test counts the gaps rather than the arrows now, so losing
+one still fails.
 
-An arrow is drawn out of three `DrawList_AddLine` calls - a stem and two sides
-to the head - rather than set as a character. The font a REAPER build hands
-ReaImGui is not guaranteed to have an arrow glyph in it and a missing glyph is
-a box, whereas lines always draw. `DrawList_AddTriangleFilled` may well exist,
-but it could not be confirmed and an unknown ReaImGui function is a hard error
-in REAPER, so it was not worth the risk for a shape three lines can make.
-
-The test counts the lines drawn in the step colour - nine, three arrows of
-three - so a missing arrow fails rather than going unnoticed.
+The step numbers are **neutral, not an accent**, and the test holds that in
+place: the step colour is pushed as a text colour nowhere but on the numbers.
 
 ## Colour
 
-**Reset to Dear ImGui's own palette, deliberately.** The window, the unchosen
-buttons, the text and the headings are all the theme's. Four coloured bands
-were tried and pulled back out; do not reach for colour again without being
-asked.
+**After Ableton Live 8's default theme**: a mid-dark neutral grey chrome meant
+to sit quietly under brightly coloured clips, controls raised a shade off it,
+and one warm accent for whatever is on.
 
-Two things are still coloured, because there is no default to fall back to:
+It is a **likeness, not a match**. Live's `.ask` values are not published, so
+this was built from the theme's described character rather than extracted from
+it. If an exact match ever matters, the values would have to come from a real
+theme file or a screenshot, and this is the thing to replace.
 
-- **A chosen button.** A plain Dear ImGui button has no chosen state, so it
-  borrows the theme's own pressed blue. Without it a chosen button and an
-  unchosen one are identical and the window is unusable. `tests/test_ui.lua`
-  asserts exactly one colour paints a button, and that far fewer colours are
-  pushed than there are buttons drawn - which is what catches a return to
-  colouring everything.
-- **The piano roll**, which is drawn rather than composed of widgets. Quiet
-  greys and one amber playhead.
+`THEME` is a list of `{ "Col_Name", 0xRRGGBBAA }` pushed before `Begin` and
+popped after `End` - **outside the `visible` test**, because a push always
+needs its pop and a collapsed window still pushed. Adding a colour is one row.
+A `Col_` name that does not exist is a hard error in REAPER, and the mock's
+`__index` raises on it, so an invented one fails in the test instead.
 
-`shade()` makes the hover and held states from the chosen colour rather than
+The accent is spent where Live spends it: on what is switched on. A chosen
+button takes it, **and dark text with it**, because the accent is far lighter
+than the chrome. Nothing else is coloured except the roll, which is drawn
+rather than composed of widgets - dark like Live's MIDI editor, notes in a cool
+tone so they never read as a selection.
+
+`shade()` makes the hover and held states from the accent rather than
 hand-picking them. Arithmetic rather than bit operators, like the MIDI writer,
 and it must keep the alpha byte or ReaImGui is handed a fully transparent
-colour.
+colour. **It has now been deleted twice by a careless block replacement** -
+it lives among the colour constants but is not one, so check it survived.
 
 ## Tests
 
