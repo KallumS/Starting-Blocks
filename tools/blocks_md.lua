@@ -172,13 +172,16 @@ w()
 
 w("### Melody")
 w()
-w("The two smallest moves a melody can make. An interval, a direction and a")
-w("shape:")
+w("The two smallest moves a melody can make, and the one note that does not")
+w("move at all. An interval, a direction and a shape:")
 w()
 w("| interval | |")
 w("| --- | --- |")
 for _, iv in ipairs(E.INTERVALS) do
-  w(("| %s | %s |"):format(iv, iv == "2nd" and "the step" or "a leap"))
+  local what = "a leap"
+  if iv.hold then what = "one note, held for the rate"
+  elseif iv.name == "2nd" then what = "the step" end
+  w(("| %s | %s |"):format(iv.name, what))
 end
 w()
 w("| shape | |")
@@ -190,6 +193,10 @@ w()
 w("All of it is diatonic: a 3rd is two scale steps, whatever that is in")
 w("semitones in this key, and an octave is however many steps this scale takes")
 w("to get there - five in a pentatonic, seven in a major scale.")
+w()
+w("Sustain has nothing to point in a direction and no shape to take, so the")
+w("panel puts the scale degree where the shape was - the same degree chosen in")
+w("step 2, shown again where it is the only thing left to choose.")
 w()
 
 w("### Bass")

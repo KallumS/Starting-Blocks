@@ -41,6 +41,14 @@ than no control: the drums hide the rate and shuffle entirely for a tom rather
 than showing them greyed. The same instinct removed the old "clicking a degree
 while following turns following off" - there was no mode to get stuck in.
 
+Where a control goes dead there is often a better one to put in its place. A
+sustained melody has no direction and no shape, so the Melody panel does not
+grey them: it drops both and draws the **scale degree** there instead, which is
+the only thing left to choose about one held note. That degree is step 2's
+degree, drawn a second time - `degreeButtons(idPrefix)` is called from both, so
+there is one setting and two places it can be reached, per **one setting shown
+in many places** below.
+
 ## Generators
 
 Each one fills `c.notes` and leaves the block's length in `c.len`.
@@ -157,15 +165,66 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
   batch, then call `MIDI_Sort` once.
 - A refusal has to close the undo block it opened.
 
+## Finding your way down the window
+
+The three things done in order - **1 Key, 2 Scale degree, 3 Building block** -
+are numbered, with a gap after each. The options and the buttons under them are
+not a step: they are what you do once the three are chosen.
+
+There were arrows drawn in those gaps. Taking them out and **leaving the gap**
+separated the steps just as well with nothing on screen to read, which is the
+better answer. The test counts the gaps rather than the arrows now, so losing
+one still fails.
+
+The step numbers are **neutral, not an accent**, and the test holds that in
+place: the step colour is pushed as a text colour nowhere but on the numbers.
+
 ## Colour
 
-One accent, orange, for whatever is chosen; a steel grey window behind it. A
-chosen button also takes dark text, because white on orange is a poor read -
-`pick()` pushes four colours and pops four.
+Three colours: a dark grey ground, a light grey for the controls raised off
+it, and one yellow for whatever is switched on. **These are settled** - they
+were chosen deliberately and signed off, so treat a change to any of the three
+values as a change of mind rather than a tidy-up.
 
-The piano roll sits on a background darker than the window so it reads as
-inset, and `WARN` is red rather than the orange it used to be, so a warning is
-not mistaken for a selection.
+**Every grey in `THEME` is blue-shifted**, R < G < B all the way down the ramp.
+It is the easiest thing in that table to undo by accident: a neutral grey looks
+perfectly correct in a diff and only reads as flat once it is on screen next to
+the yellow. The greys in this window were neutral for a long time, which is
+exactly why the mistake is an easy one to make twice.
+
+The dark end of the ramp is the ground and the roll, and it stops short of
+black on purpose - flat black under a saturated yellow reads as a hole rather
+than a surface.
+
+`THEME` is a list of `{ "Col_Name", 0xRRGGBBAA }` pushed before `Begin` and
+popped after `End` - **outside the `visible` test**, because a push always
+needs its pop and a collapsed window still pushed. Adding a colour is one row.
+A `Col_` name that does not exist is a hard error in REAPER, and the mock's
+`__index` raises on it, so an invented one fails in the test instead.
+
+**The buttons are lighter than the chrome, which is new.** Every earlier scheme
+here raised the buttons a shade off a mid-grey and lettered them in the
+window's own light text; this one puts a light grey on a dark ground, so the
+light text would vanish. `pick()` therefore pushes `INK` for **every**
+button, chosen or not - the first scheme here where an unchosen button needs a
+text colour of its own. Drop that push and the grey buttons go unreadable while
+the chosen one still looks fine, which is exactly the failure a frame-wide
+"was dark ink pushed?" check cannot see. The mock keeps a real style-colour
+stack and records the fill and the text **per button**, and the test walks
+every button drawn.
+
+**The notes share the accent with a chosen button, and that is deliberate.**
+Every earlier scheme here kept them apart on purpose - the note colour used to
+be asserted to paint no button, so a note could never read as a selection. One
+yellow for both was asked for, so what keeps them apart now is not hue but
+ground: the roll is drawn far darker than the chrome the buttons sit on. That
+is the property the test holds, in place of the old one.
+
+`shade()` makes the hover and held states from the accent rather than
+hand-picking them. Arithmetic rather than bit operators, like the MIDI writer,
+and it must keep the alpha byte or ReaImGui is handed a fully transparent
+colour. **It has now been deleted twice by a careless block replacement** -
+it lives among the colour constants but is not one, so check it survived.
 
 ## Tests
 
@@ -191,12 +250,23 @@ clamp.
 When you add a control, nothing needs to be added to the test: the sweep finds
 it. When you add a ReaImGui function, add it to the mock.
 
+**The sweep cannot see one control swapped for another.** It clicks what is on
+screen, so a panel that shows A where it used to show B still draws, still
+balances its pushes and still has the same sliders - the sweep is happy either
+way. Melody's sustain swap was written, and deliberately broken, and every
+suite still passed. Assert a swap directly: count the labels on screen in each
+state, and click the second copy of a shared control to prove it drives the same
+setting rather than a new one. The sweep leaves the key wherever it stopped, so
+such a test clears the ExtState and reloads the script first, or the numerals it
+is counting are not the ones it expects.
+
 **Prove a test bites before believing it.** Every suite here has been checked by
-deliberately breaking the thing it covers and watching it fail. Three real gaps
+deliberately breaking the thing it covers and watching it fail. Four real gaps
 were found that way and would not have been found otherwise: the speller test
 that only covered seven-note scales, the slider sweep that never reached a
-conditionally-shown control, and settings loading that clamped some fields and
-not others. A test that has never failed has not been tested.
+conditionally-shown control, settings loading that clamped some fields and not
+others, and the sweep's blindness to a swapped control described above. A test
+that has never failed has not been tested.
 
 **Name what you assert, do not count it.** The slider check lists the sliders it
 reached rather than counting them, so a control that stops being reachable shows
@@ -204,6 +274,31 @@ up as a missing name instead of a number that quietly went down by one.
 
 `docs/BLOCKS.md` is generated by `tools/blocks_md.lua`, which reads the engine's
 tables directly. Do not hand-edit it; `tools/test.sh` fails if it is stale.
+
+## Previewing the window without REAPER
+
+```
+python3 tools/run_lua.py tools/preview.lua > preview.json
+```
+
+`tools/preview.lua` stands a recording mock in ReaImGui's place, loads the real
+script unchanged, and writes down every widget it asks for, in order, for every
+panel - plus the notes the engine really generates for each. A preview built
+from that is a recording rather than a drawing of what someone remembers, so it
+cannot flatter the layout.
+
+What it is faithful about: the widgets, their order, their labels, which are
+chosen, the note data, and **the colours** - `doc.theme` is every `Col_` the
+script pushed and `doc.roll` is what the roll was drawn in. What it is not:
+spacing and font metrics, because ReaImGui measures text with its own font.
+
+The colours were added because a preview that records the widgets and then
+paints them from a palette typed out by hand is only half a recording, and the
+painted half is the half that flatters. Two details make it keep working: the
+mock mints each `Col_` name on first use through a metatable, so a colour added
+to `THEME` turns up with nothing edited here; and the roll's colours are told
+apart by **the drawing order inside `pianoRoll`** - ground, then grid, then
+notes - rather than by their position in a list, so they survive a recolouring.
 
 ## History worth knowing
 

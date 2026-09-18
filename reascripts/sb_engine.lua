@@ -223,7 +223,18 @@ M.BAR_LENGTHS = {
 -- repeats existed.
 M.LENGTH_MODES = { "Repeats", "Bars" }
 
-M.INTERVALS  = { "2nd", "3rd", "4th", "5th", "6th", "7th", "Octave" }
+-- What a melodic cell moves by, in scale steps. Sustain moves by nothing: it
+-- is one note held, which is the smallest melodic thing there is.
+M.INTERVALS = {
+  { name = "2nd",     steps = 1 },
+  { name = "3rd",     steps = 2 },
+  { name = "4th",     steps = 3 },
+  { name = "5th",     steps = 4 },
+  { name = "6th",     steps = 5 },
+  { name = "7th",     steps = 6 },
+  { name = "Octave",  octave = true },   -- however many steps this scale takes
+  { name = "Sustain", hold = true },
+}
 M.SHAPES     = { "Single", "Return", "Fill" }
 M.BASS_TONES = { "Root", "3rd", "5th", "7th" }
 M.INVERSIONS = { "Root", "1st", "2nd", "3rd" }
@@ -649,21 +660,42 @@ GEN.Run = function(st, c)
   layOut(st, c, applyDirection(pool, st.runDir))
 end
 
+function M.isSustain(st) return M.INTERVALS[st.interval].hold == true end
+
+-- How many scale steps the cell moves. An octave is however many this
+-- particular scale takes to get there, which is five in a pentatonic.
+function M.melodySteps(st)
+  local iv = M.INTERVALS[st.interval]
+  if iv.hold then return 0 end
+  if iv.octave then return M.scaleLen(st) end
+  return iv.steps
+end
+
 -- A melodic cell is however long its own notes make it.
 function M.melodyBeats(st)
-  local steps = (st.interval == 7) and M.scaleLen(st) or st.interval
+  if M.isSustain(st) then return M.rateBeats(st) end
+  local steps = M.melodySteps(st)
   local n = (st.shape == 1 and 2) or (st.shape == 2 and 3) or (steps + 1)
   return M.rateBeats(st) * n
 end
 
 GEN.Melody = function(st, c)
+  local step = M.rateBeats(st)
+  local len  = step * st.gate / 100
+  local a    = M.scalePitch(st, st.degree) + st.oct * 12
+
+  -- One note, held for the rate. Nothing moves, so there is no direction and
+  -- no shape to give it.
+  if M.isSustain(st) then
+    addNote(c, 0, len, a, M.VELOCITY)
+    c.len = step
+    return
+  end
+
   -- A 2nd is one scale step, a 3rd is two, and the octave is however many
   -- steps this particular scale takes to get there.
-  local steps = (st.interval == 7) and M.scaleLen(st) or st.interval
+  local steps = M.melodySteps(st)
   local dir   = (st.melDir == 1) and 1 or -1
-  local step  = M.rateBeats(st)
-  local len   = step * st.gate / 100
-  local a = M.scalePitch(st, st.degree) + st.oct * 12
   local b = M.scalePitch(st, st.degree + dir * steps) + st.oct * 12
 
   if st.shape == 1 then                      -- Single: the move
@@ -765,9 +797,14 @@ function M.blockName(st)
     return ("%s %s %s Run %s %s%s"):format(root, scale, where,
       M.DIRECTIONS[st.runDir], rate, times)
   elseif st.cat == "Melody" then
+    -- A sustained note has no direction and no shape, so its name claims
+    -- neither of them.
+    if M.isSustain(st) then
+      return ("%s %s %s Melody Sustain %s"):format(root, scale, where, rate)
+    end
     return ("%s %s %s Melody %s %s %s"):format(root, scale, where,
       (st.melDir == 1) and "Up" or "Down",
-      M.INTERVALS[st.interval], M.SHAPES[st.shape])
+      M.INTERVALS[st.interval].name, M.SHAPES[st.shape])
   elseif st.cat == "Bass" then
     return ("%s %s %s Bass %s %s"):format(root, scale, where,
       M.BASS_TONES[st.bassTone], rate)

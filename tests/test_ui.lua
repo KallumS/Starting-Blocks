@@ -39,7 +39,11 @@ end
 local imgui = {
   idDepth = 0, colDepth = 0, widthDepth = 0, varDepth = 0,
   buttons = {}, sliders = {}, checkboxes = {},
-  bgAlpha = nil, windowBg = nil,
+  bgAlpha = nil, windowBg = nil, windowBgPushes = 0,
+  highlights = {}, hovered = {}, held = {}, buttonColourPushes = 0,
+  colStack = {}, buttonInk = {},
+  texts = {}, lines = {}, gaps = {},
+  textColours = {}, drawColours = {},
   clickTarget = nil, clicked = nil,
   tooltips = {}, drawCalls = 0, maxIdDepth = 0,
 }
@@ -53,9 +57,15 @@ local ImGui = {}
 -- Distinct values, so the mock can tell which colour is being pushed rather
 -- than only that one was.
 for i, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
-                     "Col_Text", "Col_WindowBg", "Cond_FirstUseEver",
-                     "Key_Escape", "HoveredFlags_AnyWindow",
-                     "StyleVar_WindowRounding" }) do
+                     "Col_Text", "Col_TextDisabled", "Col_WindowBg",
+                     "Col_PopupBg", "Col_Border", "Col_FrameBg",
+                     "Col_FrameBgHovered", "Col_FrameBgActive",
+                     "Col_TitleBg", "Col_TitleBgActive", "Col_TitleBgCollapsed",
+                     "Col_CheckMark", "Col_SliderGrab", "Col_SliderGrabActive",
+                     "Col_Separator", "Col_ScrollbarBg", "Col_ScrollbarGrab",
+                     "Col_ScrollbarGrabHovered", "Col_ScrollbarGrabActive",
+                     "Cond_FirstUseEver", "Key_Escape",
+                     "HoveredFlags_AnyWindow", "StyleVar_WindowRounding" }) do
   ImGui[k] = i
 end
 
@@ -85,8 +95,12 @@ function ImGui.SeparatorText(_, s) count("SeparatorText"); imgui.lastHeading = s
 function ImGui.Text(_, s)
   count("Text")
   if type(s) ~= "string" then error("Text got a " .. type(s)) end
+  imgui.texts[#imgui.texts + 1] = s
 end
-function ImGui.Dummy() count("Dummy") end
+function ImGui.Dummy(_, w, h)
+  count("Dummy")
+  imgui.gaps[#imgui.gaps + 1] = h
+end
 function ImGui.SameLine() count("SameLine") end
 function ImGui.NewLine() count("NewLine") end
 function ImGui.PushID(_, v)
@@ -98,9 +112,24 @@ function ImGui.PopID()
   imgui.idDepth = imgui.idDepth - 1
   if imgui.idDepth < 0 then error("PopID without a PushID") end
 end
+-- What a style colour actually is at this moment: the last push of it that
+-- has not been popped. The theme is pushed like anything else, so this is the
+-- real answer and not just "was it ever pushed".
+local function effective(idx)
+  for i = #imgui.colStack, 1, -1 do
+    if imgui.colStack[i].idx == idx then return imgui.colStack[i].col end
+  end
+  return nil
+end
+
 function ImGui.Button(_, label, w, h)
   if type(label) ~= "string" then error("Button label is a " .. type(label)) end
   imgui.buttons[#imgui.buttons + 1] = label
+  -- Recorded per button rather than per frame: a scheme can push dark ink for
+  -- the chosen button alone and leave every other one unreadable, and a frame
+  -- tally cannot tell those two apart.
+  imgui.buttonInk[#imgui.buttons] =
+    { bg = effective(ImGui.Col_Button), text = effective(ImGui.Col_Text) }
   if imgui.clickTarget == #imgui.buttons then
     imgui.clicked = label
     return true
@@ -113,10 +142,22 @@ function ImGui.PushStyleColor(_, idx, col)
     error(("style colour %08X is fully transparent - colours are 0xRRGGBBAA")
           :format(col))
   end
-  if idx == ImGui.Col_WindowBg then imgui.windowBg = col end
+  if idx == ImGui.Col_WindowBg then
+    imgui.windowBg = col
+    imgui.windowBgPushes = imgui.windowBgPushes + 1
+  end
+  if idx == ImGui.Col_Button then
+    imgui.highlights[col] = true
+    imgui.buttonColourPushes = imgui.buttonColourPushes + 1
+  end
+  if idx == ImGui.Col_ButtonHovered then imgui.hovered[col] = true end
+  if idx == ImGui.Col_ButtonActive  then imgui.held[col] = true end
+  if idx == ImGui.Col_Text          then imgui.textColours[col] = true end
+  imgui.colStack[#imgui.colStack + 1] = { idx = idx, col = col }
   imgui.colDepth = imgui.colDepth + 1
 end
 function ImGui.PopStyleColor(_, n)
+  for _ = 1, (n or 1) do imgui.colStack[#imgui.colStack] = nil end
   imgui.colDepth = imgui.colDepth - (n or 1)
   if imgui.colDepth < 0 then error("PopStyleColor without a push") end
 end
@@ -154,10 +195,15 @@ function ImGui.DrawList_AddRectFilled(_, x1, y1, x2, y2, col)
   imgui.drawCalls = imgui.drawCalls + 1
   if type(col) ~= "number" then error("rect colour is a " .. type(col)) end
   if x2 < x1 or y2 < y1 then error("rect is inside out") end
+  imgui.drawColours[col] = true
 end
-function ImGui.DrawList_AddLine(_, _, _, _, _, col)
+function ImGui.DrawList_AddLine(_, x1, y1, x2, y2, col)
   imgui.drawCalls = imgui.drawCalls + 1
   if type(col) ~= "number" then error("line colour is a " .. type(col)) end
+  for _, v in ipairs({ x1, y1, x2, y2 }) do
+    if type(v) ~= "number" then error("line coordinate is a " .. type(v)) end
+  end
+  imgui.lines[col] = (imgui.lines[col] or 0) + 1
 end
 function ImGui.GetContentRegionAvail() return 960, 400 end
 function ImGui.IsMouseClicked() return imgui.mouseClicked == true end
@@ -256,7 +302,12 @@ local function frame(clickNth)
   imgui.sliders, imgui.checkboxes = {}, {}
   imgui.clickTarget, imgui.clicked = clickNth, nil
   imgui.idDepth, imgui.colDepth, imgui.widthDepth, imgui.varDepth = 0, 0, 0, 0
-  imgui.bgAlpha, imgui.windowBg = nil, nil
+  imgui.bgAlpha, imgui.windowBg, imgui.windowBgPushes = nil, nil, 0
+  imgui.highlights, imgui.textColours, imgui.drawColours = {}, {}, {}
+  imgui.hovered, imgui.held = {}, {}
+  imgui.buttonColourPushes = 0
+  imgui.colStack, imgui.buttonInk = {}, {}
+  imgui.texts, imgui.lines, imgui.gaps = {}, {}, {}
   local good, e = pcall(deferred)
   if not good then return false, e end
   if imgui.idDepth ~= 0 then return false, "unbalanced PushID: " .. imgui.idDepth end
@@ -279,9 +330,82 @@ ok(imgui.drawCalls > 0, "and draws the preview roll")
 -- edit and shows up nowhere else, so it is asserted rather than left to be
 -- noticed missing.
 eq(imgui.bgAlpha, 1.0, "the window background is fully opaque, not transparent")
-ok(imgui.windowBg ~= nil, "and it sets a window background colour")
-eq(imgui.windowBg and (imgui.windowBg % 256), 255,
-   "which is itself fully opaque")
+
+-- The window carries a whole theme now. Two things have to hold: the theme
+-- goes on once and comes off once, and a chosen button still looks different
+-- from an unchosen one, or the window cannot be used.
+do
+  local function count(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+  end
+
+  local ACCENT = 0xFFF200FF    -- what is switched on, and the notes
+  local INK    = 0x14171CFF
+
+  -- How light a colour is, roughly. Enough to tell "the text will be read off
+  -- this" from "it will not".
+  local function lum(col)
+    local b = math.floor(col / 256) % 256
+    local g = math.floor(col / 65536) % 256
+    local r = math.floor(col / 16777216) % 256
+    return (r * 299 + g * 587 + b * 114) / 1000
+  end
+
+  -- Two colours paint buttons: the theme's, and the accent a chosen one takes.
+  eq(count(imgui.highlights), 2, "the theme's button colour and the chosen one")
+  ok(imgui.highlights[ACCENT], "a chosen button takes the accent")
+  eq(count(imgui.hovered), 2, "each with a hover shade")
+  eq(count(imgui.held), 2, "and a held shade")
+  for col in pairs(imgui.highlights) do
+    ok(col % 256 == 255, ("button colour %08X is fully opaque"):format(col))
+  end
+
+  -- Both button colours are far lighter than the chrome, so the window's own
+  -- light text would vanish on either. Every button gets dark ink instead -
+  -- the unchosen ones too, which is what no earlier scheme here needed. Drop
+  -- that push and the grey buttons go unreadable, so it is asserted rather
+  -- than left to be noticed.
+  local worst, seen = nil, 0
+  for i, b in ipairs(imgui.buttonInk) do
+    seen = seen + 1
+    if not worst then
+      if b.bg == nil or b.text == nil then
+        worst = ("button %d (%s) has no colour at all"):format(i, imgui.buttons[i])
+      elseif lum(b.bg) < lum(imgui.windowBg) + 60 then
+        worst = ("button %d (%s) is %08X, not clear of the chrome")
+                :format(i, imgui.buttons[i], b.bg)
+      elseif lum(b.bg) - lum(b.text) < 100 then
+        worst = ("button %d (%s): %08X text on %08X does not read")
+                :format(i, imgui.buttons[i], b.text, b.bg)
+      end
+    end
+  end
+  ok(seen > 0, "buttons record the colours they were drawn in")
+  ok(worst == nil, "every button is dark ink on light grey: " .. tostring(worst))
+  ok(imgui.textColours[INK], "and the ink is the scheme's own")
+
+  -- The theme is pushed once a frame and popped once. Col_WindowBg belongs to
+  -- the theme alone, so seeing it exactly once is what says so.
+  eq(imgui.windowBgPushes, 1, "the theme goes on once a frame")
+  ok(imgui.windowBg ~= nil, "and it sets the window's own background")
+  eq(imgui.bgAlpha, 1.0, "which is solid rather than transparent")
+
+  -- The notes share the accent with a chosen button, which every earlier
+  -- scheme here deliberately avoided - the note colour used to be asserted to
+  -- paint no button. One yellow is what was asked for, so what keeps a note
+  -- from reading as a selection is no longer its hue but its ground: the roll
+  -- is drawn far darker than the chrome the buttons sit on. That is the thing
+  -- worth holding, so that is what is checked.
+  ok(imgui.drawColours[ACCENT], "the notes are drawn in the accent too")
+  local roll
+  for col in pairs(imgui.drawColours) do
+    if not roll or lum(col) < lum(roll) then roll = col end
+  end
+  ok(roll ~= nil and lum(roll) < lum(imgui.windowBg) - 15,
+     "and the roll they sit on is darker than the chrome, so they read apart")
+end
 
 -- The category buttons are the way in to each panel, so find and click them.
 local function clickLabel(label)
@@ -397,6 +521,64 @@ do
   imgui.toggleBoxes = false
   ok(g, "toggling the checkboxes: " .. tostring(err2))
   ok(frame(), "and the frame after")
+end
+
+------------------------------------------------------------------------------
+-- The Melody panel swaps one control for another
+--
+-- Sustain has no direction and no shape, so the panel puts the scale degree
+-- where the shape was. The click sweep above walks every button and would not
+-- notice if the swap stopped happening - both states draw, both balance, and
+-- the sliders are the same either way. So it is asserted directly.
+------------------------------------------------------------------------------
+
+do
+  -- The sweep above clicked every button, so the key is wherever it left it.
+  -- Come back up on the defaults, where the degrees are the C major numerals.
+  for k in pairs(extstate) do extstate[k] = nil end
+  deferred = nil
+  ok(pcall(dofile, SCRIPT), "the script loads fresh for the Melody check")
+
+  local function tally(label)
+    local n = 0
+    for _, l in ipairs(imgui.buttons) do if l == label then n = n + 1 end end
+    return n
+  end
+
+  ok(clickLabel("Melody"), "switching to Melody")
+  frame()
+  eq(tally("V"), 1, "a moving melody shows the degree once, up in step 2")
+  eq(tally("Single"), 1, "and it has a shape to choose")
+  eq(tally("Up"), 1, "and a direction to move in")
+
+  ok(clickLabel("Sustain"), "choosing Sustain")
+  frame()
+  eq(tally("V"), 2, "a sustained note shows the degree again, down in the panel")
+  eq(tally("Single"), 0, "and the shape is gone rather than greyed")
+  eq(tally("Up"), 0, "as is the direction, which has nothing to point at")
+
+  -- One degree shown twice, not two degrees. So click the panel's copy - the
+  -- second "vi" on screen, never step 2's - and the one saved degree has to
+  -- move. A second, independent degree would leave it where it was.
+  local target
+  frame()
+  do
+    local seen = 0
+    for i, l in ipairs(imgui.buttons) do
+      if l == "vi" then
+        seen = seen + 1
+        if seen == 2 then target = i break end
+      end
+    end
+  end
+  ok(target ~= nil, "the panel draws its own copy of the degree buttons")
+  if target then
+    ok(frame(target), "clicking the panel's copy draws")
+    frame()
+    reaper.atexitHandler()
+    eq(extstate["StartingBlocks:state"]:match("degree=%d+"), "degree=5",
+       "and it moves the one degree there is, not a second one")
+  end
 end
 
 ------------------------------------------------------------------------------
@@ -549,6 +731,37 @@ do
     if not frame() then worst = "the frame after button " .. i; break end
   end
   ok(worst == nil, "every drum piece draws at those extremes: " .. tostring(worst))
+end
+
+------------------------------------------------------------------------------
+-- The order to do things in
+--
+-- Three numbered steps with an arrow from each to the next. The arrows are
+-- drawn out of lines rather than set as a character, so what is asserted is
+-- that the lines are there - a missing arrow is silent otherwise.
+------------------------------------------------------------------------------
+
+do
+  frame()
+  local STEP = 0xBFC5CEFF
+
+  local seen = {}
+  for _, t in ipairs(imgui.texts) do seen[t] = true end
+  for _, n in ipairs({ "1", "2", "3" }) do
+    ok(seen[n], "step " .. n .. " is numbered on screen")
+  end
+  ok(not seen["4"], "and there is no fourth step")
+
+  -- The arrows that used to sit between the steps are gone; the space they
+  -- took is what separates them now, so the space is what is checked.
+  local wide = 0
+  for _, h in ipairs(imgui.gaps) do if h == 22 then wide = wide + 1 end end
+  eq(wide, 3, "three step gaps, one after each numbered step")
+  ok(not imgui.lines[STEP], "and nothing is drawn in them")
+
+  -- The step numbers are deliberately neutral. STEP is pushed as a text colour
+  -- nowhere but on the numbers, so this is what holds that in place.
+  ok(imgui.textColours[STEP], "the step numbers are neutral, not an accent")
 end
 
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))

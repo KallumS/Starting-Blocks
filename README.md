@@ -1,8 +1,8 @@
 # Starting Blocks
 
 A catalogue of the smallest useful pieces of music - chords, arpeggios, runs,
-melodic steps and leaps, bass notes, single drum hits - that you pick by key,
-scale and scale degree and then drop into a REAPER project.
+melodic steps, leaps and held notes, bass notes, single drum hits - that you
+pick by key, scale and scale degree and then drop into a REAPER project.
 
 The idea is that a song starts from parts, not from a blank arrange. Pick a
 key. Pick a degree of it. Then pull in the block you want and keep going.
@@ -98,6 +98,12 @@ measured either the same way or in **repeats**, and you pick which: one repeat
 is one pass of whatever the direction produced, so the block comes out as long
 as the arpeggio and no longer, while a bar length cycles the pass and cuts it
 at the bar line. A melody is however long its own notes make it.
+
+A melody can also **sustain**: one note, held for the rate, which is the
+smallest melodic thing there is. It has nothing to point in a direction and no
+shape to take, so the panel puts the scale degree where the shape was - the
+same degree you chose in step 2, offered again where it is the only thing left
+to decide.
 
 A chord can be **chopped** into segments and struck again in each one, from
 1/64 up to 1/1. The drums have no named patterns: a kick every 1/4 is four on

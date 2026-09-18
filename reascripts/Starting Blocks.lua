@@ -5,14 +5,13 @@
  *                 drum hits - picked by key, scale and scale degree, and put
  *                 into the project as MIDI.
  *
- * About:          Pick a key. Pick a degree of it. Pick a block. Then either
- *                 drop it where the mouse is, insert it at the edit cursor, or
- *                 write it out as a .mid.
+ * About:          Pick a key. Pick a degree of it. Pick a block. Then insert it
+ *                 at the edit cursor, write it out as a .mid, or audition it.
  *
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Starting-Blocks
- * Version:        2.1
+ * Version:        2.3
  * Provides:
  *   sb_engine.lua
  *   sb_midi.lua
@@ -46,19 +45,80 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
-local WINDOW_BG   = 0x39414AFF   -- steel grey
-local ACCENT      = 0xE08A2EFF   -- orange, for whatever is chosen
-local ACCENT_HOV  = 0xF09B40FF
-local ACCENT_ACT  = 0xC4741EFF
--- White on orange is a poor read, so a chosen button takes dark text instead.
-local ACCENT_TEXT = 0x1E2226FF
-local NOTE_COL    = 0x6FD49AFF
-local ROLL_BG     = 0x262C33FF   -- inset, darker than the window behind it
-local ROLL_BAR    = 0x4E5761FF
-local ROLL_BEAT   = 0x333A42FF
-local PLAYHEAD    = 0xFFD966FF
-local DIM         = 0xB0B9C4FF   -- light enough to read on steel
-local WARN        = 0xE8705AFF   -- red, so it is not mistaken for the accent
+-- Three colours: a dark grey ground, a light grey for the controls raised off
+-- it, and one yellow for whatever is switched on.
+--
+-- **Every grey here is blue-shifted** - R < G < B, all the way down the ramp.
+-- That is deliberate and it is the easiest thing in this table to undo by
+-- accident, because a neutral grey looks correct in a diff and only reads as
+-- flat next to the yellow. The greys in this window were neutral for a long
+-- time; they are not any more.
+--
+-- The dark end of the ramp is the ground and the roll, and it stops short of
+-- black: flat black under a saturated yellow reads as a hole rather than a
+-- surface.
+local THEME = {
+  { "Col_Text",              0xDDE1E7FF },
+  { "Col_TextDisabled",      0x8A919CFF },
+  { "Col_WindowBg",          0x23272EFF },   -- the chrome: dark grey, cool
+  { "Col_PopupBg",           0x1B1F25FF },
+  { "Col_Border",            0x14171CFF },
+  { "Col_FrameBg",           0x1A1D23FF },   -- anything sunk into the chrome
+  { "Col_FrameBgHovered",    0x22262DFF },
+  { "Col_FrameBgActive",     0x2A2F37FF },
+  { "Col_TitleBg",           0x1B1F25FF },
+  { "Col_TitleBgActive",     0x23272EFF },
+  { "Col_TitleBgCollapsed",  0x1B1F25FF },
+  { "Col_Button",            0xA9AFBAFF },   -- the controls: light grey, raised
+  { "Col_ButtonHovered",     0xC0C6CFFF },
+  { "Col_ButtonActive",      0x8F96A2FF },
+  { "Col_CheckMark",         0xFFF200FF },
+  { "Col_SliderGrab",        0xA9AFBAFF },
+  { "Col_SliderGrabActive",  0xFFF200FF },
+  { "Col_Separator",         0x3A404AFF },
+  { "Col_ScrollbarBg",       0x1A1D23FF },
+  { "Col_ScrollbarGrab",     0x585F6BFF },
+  { "Col_ScrollbarGrabHovered", 0x6D7581FF },
+  { "Col_ScrollbarGrabActive",  0xA9AFBAFF },
+}
+
+-- The accent, spent on what is switched on - and, unlike every scheme this
+-- window has worn before it, on the notes too.
+local SELECTED    = 0xFFF200FF
+
+-- Ink. The buttons are lighter than the chrome now, so the text on one has to
+-- go dark - on the grey and on the yellow alike. This is the only scheme here
+-- where an unchosen button needs a text colour of its own.
+local INK         = 0x14171CFF
+
+-- The step numbers. Neutral: they show the order and nothing more.
+local STEP        = 0xBFC5CEFF
+
+-- The roll is drawn rather than composed of widgets. The dark end of the same
+-- cool ramp, with the notes in the accent.
+local NOTE_COL    = SELECTED
+local ROLL_BG     = 0x111419FF
+local ROLL_BAR    = 0x3A404AFF
+local ROLL_BEAT   = 0x1E2228FF
+local PLAYHEAD    = 0xF2F4F7FF
+local DIM         = 0x8A919CFF
+local WARN        = 0xD2483FFF
+
+-- Shifts a colour towards white or black, so the chosen state needs one colour
+-- rather than three. Arithmetic rather than bit operators, like the MIDI
+-- writer, so it does not care which Lua a REAPER build carries - and it keeps
+-- the alpha byte, or ReaImGui is handed a fully transparent colour.
+local function shade(col, amount)
+  local a = col % 256
+  local b = math.floor(col / 256) % 256
+  local g = math.floor(col / 65536) % 256
+  local r = math.floor(col / 16777216) % 256
+  local function mix(c)
+    if amount >= 0 then return math.floor(c + (255 - c) * amount + 0.5) end
+    return math.floor(c * (1 + amount) + 0.5)
+  end
+  return mix(r) * 16777216 + mix(g) * 65536 + mix(b) * 256 + a
+end
 
 -- ReaImGui patches Dear ImGui so a top-level window can carry its own
 -- background alpha, which a plain Dear ImGui window cannot. The same patch
@@ -130,17 +190,46 @@ end
 -- Widgets
 ------------------------------------------------------------------------------
 
+-- The whole theme goes on before Begin and comes off after End, so it covers
+-- the window itself as well as everything in it.
+local function pushTheme()
+  for _, c in ipairs(THEME) do ImGui.PushStyleColor(ctx, ImGui[c[1]], c[2]) end
+end
+local function popTheme() ImGui.PopStyleColor(ctx, #THEME) end
+
+-- An unchosen button wears the theme's grey. A chosen one takes the accent.
+-- Either way the text on it goes to INK: both are far lighter than the chrome,
+-- so the window's own light text would vanish on them.
 local function pick(label, selected, width)
+  local pushed = 1
   if selected then
-    ImGui.PushStyleColor(ctx, ImGui.Col_Button, ACCENT)
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, ACCENT_HOV)
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, ACCENT_ACT)
-    ImGui.PushStyleColor(ctx, ImGui.Col_Text, ACCENT_TEXT)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button, SELECTED)
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(SELECTED, 0.18))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(SELECTED, -0.18))
+    pushed = 4
   end
+  ImGui.PushStyleColor(ctx, ImGui.Col_Text, INK)
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  if selected then ImGui.PopStyleColor(ctx, 4) end
+  ImGui.PopStyleColor(ctx, pushed)
   return hit
 end
+
+-- `n` numbers the step, for the three that are done in order.
+local function heading(n, text)
+  if n then
+    ImGui.PushStyleColor(ctx, ImGui.Col_Text, STEP)
+    ImGui.Text(ctx, tostring(n))
+    ImGui.PopStyleColor(ctx, 1)
+    ImGui.SameLine(ctx, 0, 10)
+  end
+  ImGui.SeparatorText(ctx, text)
+end
+
+-- The space between one numbered step and the next. There were arrows drawn in
+-- here; taking them out and leaving the gap turned out to separate the steps
+-- just as well, with nothing on screen to read.
+local STEP_GAP = 22
+local function stepGap() ImGui.Dummy(ctx, 16, STEP_GAP) end
 
 local function tip(text)
   if text and ImGui.IsItemHovered(ctx) then ImGui.SetTooltip(ctx, text) end
@@ -316,6 +405,24 @@ local function commonTail(withOctaves, withOctave, withBars, withGate)
   if withBars then barsRow() end
 end
 
+-- Drawn in step 2, and again inside the Melody panel when a sustained note has
+-- no shape to put there. It is the same setting either way - there is one
+-- scale degree, shown where it is wanted.
+local function degreeButtons(idPrefix)
+  for d = 0, E.scaleLen(st) - 1 do
+    if d > 0 then ImGui.SameLine(ctx) end
+    ImGui.PushID(ctx, idPrefix .. d)
+    if pick(E.degreeNumeral(st, d), st.degree == d, 62) then
+      st.degree = d
+      touched()
+    end
+    tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
+    ImGui.PopID(ctx)
+  end
+  ImGui.SameLine(ctx, 0, 16)
+  dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
+end
+
 ------------------------------------------------------------------------------
 -- Panels
 ------------------------------------------------------------------------------
@@ -397,23 +504,38 @@ panels.Run = function()
 end
 
 panels.Melody = function()
-  dim("The two smallest moves in a melody: a step to the next scale note, or a leap past it.")
+  local held = E.isSustain(st)
+  dim(held
+      and "One note, held for the rate. The smallest melodic thing there is."
+      or  "The two smallest moves in a melody: a step to the next scale note, or a leap past it.")
 
   dim("Interval")
-  local i = chooser("mel", E.INTERVALS, st.interval, 0, 74)
+  local i = chooser("mel", E.INTERVALS, st.interval, 0, 74,
+                    function(x) return x.name end,
+                    function(x) return x.hold and "One note, no move"
+                      or (x.name == "2nd" and "The step" or "A leap") end)
   if i then st.interval = i; touched() end
-  ImGui.SameLine(ctx, 0, 16)
-  if pick("Up", st.melDir == 1, 52) then st.melDir = 1; touched() end
-  ImGui.SameLine(ctx)
-  if pick("Down", st.melDir == 2, 52) then st.melDir = 2; touched() end
 
-  dim("Shape")
-  local s = chooser("shape", E.SHAPES, st.shape, 0, 84, nil, function(_, k)
-    return ({ "The move: two notes",
-              "There and back: three notes",
-              "Every scale note in between" })[k]
-  end)
-  if s then st.shape = s; touched() end
+  -- Nothing moves in a sustained note, so there is no direction to give it and
+  -- no shape to put it in. The shape row makes way for the one thing that does
+  -- decide the note: which degree it is.
+  if held then
+    dim("Scale degree")
+    degreeButtons("meldeg")
+  else
+    ImGui.SameLine(ctx, 0, 16)
+    if pick("Up", st.melDir == 1, 52) then st.melDir = 1; touched() end
+    ImGui.SameLine(ctx)
+    if pick("Down", st.melDir == 2, 52) then st.melDir = 2; touched() end
+
+    dim("Shape")
+    local sh = chooser("shape", E.SHAPES, st.shape, 0, 84, nil, function(_, k)
+      return ({ "The move: two notes",
+                "There and back: three notes",
+                "Every scale note in between" })[k]
+    end)
+    if sh then st.shape = sh; touched() end
+  end
 
   rateRow()
   commonTail(false, true, false, true)
@@ -476,7 +598,7 @@ end
 ------------------------------------------------------------------------------
 
 local function drawKey()
-  ImGui.SeparatorText(ctx, "Key")
+  heading(1, "Key")
   local r = chooser("root", E.ROOTS, st.root, 0, 44, function(x) return x.name end)
   if r then st.root = r; touched() end
 
@@ -486,27 +608,18 @@ local function drawKey()
     st.degree = math.min(st.degree, E.scaleLen(st) - 1)
     touched()
   end
+  stepGap()
 end
 
 local function drawDegree()
-  ImGui.SeparatorText(ctx, "Scale degree")
-  for d = 0, E.scaleLen(st) - 1 do
-    if d > 0 then ImGui.SameLine(ctx) end
-    ImGui.PushID(ctx, "deg" .. d)
-    if pick(E.degreeNumeral(st, d), st.degree == d, 62) then
-      st.degree = d
-      touched()
-    end
-    tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
-    ImGui.PopID(ctx)
-  end
-  ImGui.SameLine(ctx, 0, 16)
-  dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
+  heading(2, "Scale degree")
+  degreeButtons("deg")
+  stepGap()
 end
 
 local function drawActions()
   local block = ui.block
-  ImGui.SeparatorText(ctx, block and block.name or "")
+  heading(nil, block and block.name or "")
 
   local w = select(1, ImGui.GetContentRegionAvail(ctx))
   pianoRoll(block, math.max(120, w), 92,
@@ -520,7 +633,7 @@ local function drawActions()
 
   ImGui.Dummy(ctx, 0, 2)
 
-  if ImGui.Button(ctx, "Insert at cursor", 150, 0) then
+  if pick("Insert at cursor", false, 150) then
     local r = Place.insert(block)
     if r == Place.OK then say("Inserted at the edit cursor")
     elseif r == Place.NOTHING then say("Nothing to insert", true)
@@ -528,7 +641,7 @@ local function drawActions()
   end
 
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Export .mid", 120, 0) then
+  if pick("Export .mid", false, 120) then
     local r, path = Place.export(block)
     if r == Place.OK then say("Wrote " .. tostring(path))
     elseif r == Place.NOTHING then say("Nothing to write", true)
@@ -565,7 +678,7 @@ local function frame()
   drawKey()
   drawDegree()
 
-  ImGui.SeparatorText(ctx, "Building block")
+  heading(3, "Building block")
   for i, name in ipairs(E.CATEGORIES) do
     if i > 1 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "cat" .. i)
@@ -573,7 +686,7 @@ local function frame()
     ImGui.PopID(ctx)
   end
 
-  ImGui.Dummy(ctx, 0, 4)
+  stepGap()
   ;(panels[st.cat] or panels.Chord)()
 
   ImGui.Dummy(ctx, 0, 6)
@@ -588,18 +701,15 @@ local sectionID, cmdID
 
 local function loop()
   ImGui.SetNextWindowSize(ctx, 1000, 760, ImGui.Cond_FirstUseEver)
+  -- Solid rather than the half-transparent window ReaImGui opens by default.
   ImGui.SetNextWindowBgAlpha(ctx, 1.0)
-
-  -- Read by Begin and applied to the window it opens, so pushed before it and
-  -- popped straight after: everything drawn inside is styled normally.
-  ImGui.PushStyleColor(ctx, ImGui.Col_WindowBg, WINDOW_BG)
+  pushTheme()
   local visible, open = ImGui.Begin(ctx, TITLE, true)
-  ImGui.PopStyleColor(ctx, 1)
-
   if visible then
     frame()
     ImGui.End(ctx)
   end
+  popTheme()   -- outside the visible test: a push always needs its pop
   if open and not ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then
     reaper.defer(loop)
   end
