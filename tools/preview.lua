@@ -16,15 +16,42 @@ local SCRIPT = HERE .. "/../reascripts/Starting Blocks.lua"
 local ops, pendingSelected, pendingStep = {}, false, nil
 local function push(op) ops[#ops + 1] = op end
 
+-- The colours, recorded rather than remembered. A preview that draws the
+-- widgets from a recording and then paints them from a palette typed out by
+-- hand is only half a recording, and the painted half is the half that flatters.
+local theme, colStack, rollCols = {}, {}, {}
+local inRoll, sawGrid = false, false
+
+
 ------------------------------------------------------------------------------
 -- A ReaImGui that writes down instead of drawing
 ------------------------------------------------------------------------------
 
 local ImGui = {}
-for i, k in ipairs({ "Col_Button", "Col_ButtonHovered", "Col_ButtonActive",
-                     "Col_Text", "Col_WindowBg", "Cond_FirstUseEver",
-                     "Key_Escape", "HoveredFlags_AnyWindow" }) do
+for i, k in ipairs({ "Cond_FirstUseEver", "Key_Escape",
+                     "HoveredFlags_AnyWindow" }) do
   ImGui[k] = i
+end
+
+-- Every `Col_` name mints itself on first use and remembers what it is called,
+-- so a colour added to the script's THEME turns up here with nothing edited.
+local colName, nextCol = {}, 1000
+setmetatable(ImGui, { __index = function(t, k)
+  if type(k) == "string" and k:match("^Col_") then
+    nextCol = nextCol + 1
+    colName[nextCol] = k
+    rawset(t, k, nextCol)
+    return nextCol
+  end
+  return nil
+end })
+
+-- What a style colour is right now: the last push of it still standing.
+local function effective(idx)
+  for i = #colStack, 1, -1 do
+    if colStack[i].idx == idx then return colStack[i].col end
+  end
+  return nil
 end
 
 function ImGui.CreateContext(n) return { n = n } end
@@ -44,12 +71,22 @@ function ImGui.NewLine() end
 function ImGui.PushID() end
 function ImGui.PopID() end
 function ImGui.Button(_, label, w)
-  push{ k = "btn", t = (label:gsub("##.*$", "")), sel = pendingSelected, w = w }
-  pendingSelected = false
+  local bg = effective(ImGui.Col_Button)
+  push{ k = "btn", t = (label:gsub("##.*$", "")), w = w,
+        sel = bg ~= nil and bg ~= theme.Col_Button,
+        bg = bg, ink = effective(ImGui.Col_Text) }
   return false
 end
-function ImGui.PushStyleColor(_, idx) if idx == ImGui.Col_Button then pendingSelected = true end end
-function ImGui.PopStyleColor() end
+function ImGui.PushStyleColor(_, idx, col)
+  local name = colName[idx]
+  -- The theme goes on first each frame, so the first value a name is ever
+  -- pushed with is the theme's; anything after it is a control's own.
+  if name and theme[name] == nil then theme[name] = col end
+  colStack[#colStack + 1] = { idx = idx, col = col }
+end
+function ImGui.PopStyleColor(_, n)
+  for _ = 1, (n or 1) do colStack[#colStack] = nil end
+end
 function ImGui.IsItemHovered() return false end
 function ImGui.SetTooltip() end
 function ImGui.PushItemWidth() end
@@ -64,9 +101,28 @@ function ImGui.Checkbox(_, label, v)
 end
 function ImGui.GetWindowDrawList() return {} end
 function ImGui.GetCursorScreenPos() return 0, 0 end
-function ImGui.InvisibleButton(_, id) if id == "##roll" then push{ k = "roll" } end return false end
-function ImGui.DrawList_AddRectFilled() end
-function ImGui.DrawList_AddLine() end
+function ImGui.InvisibleButton(_, id)
+  if id == "##roll" then push{ k = "roll" }; inRoll, sawGrid = true, false end
+  return false
+end
+-- The roll is drawn rather than built from widgets, so its colours arrive here
+-- and nowhere else - and with no labels on them. What tells them apart is the
+-- drawing order inside `pianoRoll`, which is structural rather than a property
+-- of the palette: the ground is the first rectangle after the roll's hit box,
+-- the grid is the lines, and anything filled after a line is a note. Read that
+-- way the names survive any recolouring; read off a list's positions they would
+-- not.
+function ImGui.DrawList_AddRectFilled(_, _, _, _, _, col)
+  if not inRoll then return end
+  if sawGrid then rollCols.note = rollCols.note or col
+  else rollCols.ground = rollCols.ground or col end
+end
+function ImGui.DrawList_AddLine(_, _, _, _, _, col)
+  if not inRoll then return end
+  sawGrid = true
+  if rollCols.bar == nil then rollCols.bar = col
+  elseif col ~= rollCols.bar then rollCols.beat = rollCols.beat or col end
+end
 function ImGui.GetContentRegionAvail() return 960, 400 end
 function ImGui.IsMouseClicked() return false end
 function ImGui.IsWindowHovered() return true end
@@ -209,5 +265,9 @@ for _, cat in ipairs(E.CATEGORIES) do
   end
   doc.blocks[cat] = { name = block.name, beats = block.beats, notes = notes }
 end
+
+-- The recorded palette, so nothing downstream has to retype it.
+doc.theme = theme
+doc.roll  = rollCols
 
 io.write(json(doc), "\n")

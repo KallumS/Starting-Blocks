@@ -181,14 +181,27 @@ place: the step colour is pushed as a text colour nowhere but on the numbers.
 
 ## Colour
 
-**After Ableton Live 8's default theme**: a mid-dark neutral grey chrome meant
-to sit quietly under brightly coloured clips, controls raised a shade off it,
-and one warm accent for whatever is on.
+**After the Batman of Detective Comics #327** (May 1964), the issue where
+Schwartz and Infantino put the yellow oval on the chest: a cowl-dark ground,
+the suit's light grey raised off it, and that yellow for the one thing that
+is on.
 
-It is a **likeness, not a match**. Live's `.ask` values are not published, so
-this was built from the theme's described character rather than extracted from
-it. If an exact match ever matters, the values would have to come from a real
-theme file or a screenshot, and this is the thing to replace.
+Unlike the Live 8 scheme it replaced - which was a likeness built from a
+described character, because Live's `.ask` values are not published - two of
+these three come from **the printing**, which is as close to actual as a comic
+gets. DC publishes no hex values either, but the press does:
+
+- the oval is **100% process yellow and nothing else**, CMYK 0/0/100/0, which
+  converts to `#FFF200`. That is where the circulated "Batman yellow" comes
+  from, and it is why the accent is that exact value rather than a hand-picked
+  gold.
+- the suit's grey was a **screen of cyan and magenta** - a four-colour press
+  had no grey ink - so it carries a blue cast. Every grey in `THEME` is
+  blue-shifted, R < G < B all the way down. **A neutral grey is the one thing
+  that would be wrong here**, and a neutral grey is what every grey in this
+  window used to be, so this is easy to undo by accident.
+- the cape and cowl are the dark end of that same ramp rather than flat black,
+  because they were printed with blue highlights.
 
 `THEME` is a list of `{ "Col_Name", 0xRRGGBBAA }` pushed before `Begin` and
 popped after `End` - **outside the `visible` test**, because a push always
@@ -196,11 +209,23 @@ needs its pop and a collapsed window still pushed. Adding a colour is one row.
 A `Col_` name that does not exist is a hard error in REAPER, and the mock's
 `__index` raises on it, so an invented one fails in the test instead.
 
-The accent is spent where Live spends it: on what is switched on. A chosen
-button takes it, **and dark text with it**, because the accent is far lighter
-than the chrome. Nothing else is coloured except the roll, which is drawn
-rather than composed of widgets - dark like Live's MIDI editor, notes in a cool
-tone so they never read as a selection.
+**The buttons are lighter than the chrome, which is new.** Every earlier scheme
+here raised the buttons a shade off a mid-grey and lettered them in the
+window's own light text; this one puts the suit's light grey on a dark ground,
+so the light text would vanish. `pick()` therefore pushes `INK` for **every**
+button, chosen or not - the first scheme here where an unchosen button needs a
+text colour of its own. Drop that push and the grey buttons go unreadable while
+the chosen one still looks fine, which is exactly the failure a frame-wide
+"was dark ink pushed?" check cannot see. The mock keeps a real style-colour
+stack and records the fill and the text **per button**, and the test walks
+every button drawn.
+
+**The notes share the accent with a chosen button, and that is deliberate.**
+Every earlier scheme here kept them apart on purpose - the note colour used to
+be asserted to paint no button, so a note could never read as a selection. One
+yellow for both was asked for, so what keeps them apart now is not hue but
+ground: the roll is drawn far darker than the chrome the buttons sit on. That
+is the property the test holds, in place of the old one.
 
 `shade()` makes the hover and held states from the accent rather than
 hand-picking them. Arithmetic rather than bit operators, like the MIDI writer,
@@ -270,8 +295,17 @@ from that is a recording rather than a drawing of what someone remembers, so it
 cannot flatter the layout.
 
 What it is faithful about: the widgets, their order, their labels, which are
-chosen, and the note data. What it is not: spacing and font metrics, because
-ReaImGui measures text with its own font.
+chosen, the note data, and **the colours** - `doc.theme` is every `Col_` the
+script pushed and `doc.roll` is what the roll was drawn in. What it is not:
+spacing and font metrics, because ReaImGui measures text with its own font.
+
+The colours were added because a preview that records the widgets and then
+paints them from a palette typed out by hand is only half a recording, and the
+painted half is the half that flatters. Two details make it keep working: the
+mock mints each `Col_` name on first use through a metatable, so a colour added
+to `THEME` turns up with nothing edited here; and the roll's colours are told
+apart by **the drawing order inside `pianoRoll`** - ground, then grid, then
+notes - rather than by their position in a list, so they survive a recolouring.
 
 ## History worth knowing
 

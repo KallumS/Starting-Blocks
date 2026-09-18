@@ -45,51 +45,70 @@ Place.setMidi(Midi)
 -- Look
 ------------------------------------------------------------------------------
 
--- After Ableton Live 8's default theme: a mid-dark neutral grey chrome meant
--- to sit quietly under brightly coloured clips, controls raised a shade off it,
--- and one warm accent for whatever is on. Built from that description rather
--- than from the theme file - Live's .ask values are not published - so it is a
--- likeness, not a match.
+-- After the Batman of Detective Comics #327 (May 1964), the issue where
+-- Schwartz and Infantino put the yellow oval on the chest: a cowl-dark ground,
+-- the suit's light grey raised off it, and that yellow for the one thing that
+-- is on.
+--
+-- Two of the three colours are the printing, not a brand guide, which is as
+-- close to "actual" as this gets. DC publishes no hex values, but the comic was
+-- printed in four colours, and:
+--
+--   * the oval is 100% process yellow and nothing else - CMYK 0/0/100/0, which
+--     converts to #FFF200. That is where the circulated "Batman yellow" comes
+--     from.
+--   * the suit's grey is a screen of cyan and magenta, so it is a **cool** grey
+--     with a blue cast, not a neutral one. Neutral grey is the one thing that
+--     would be wrong here, and it is what every grey in this table used to be.
+--
+-- So the whole ramp below is blue-shifted: R < G < B in every grey. The cape
+-- and cowl are the dark end of it rather than pure black, because they were
+-- printed with blue highlights and never as flat ink.
 local THEME = {
-  { "Col_Text",              0xE4E4E4FF },
-  { "Col_TextDisabled",      0x9C9C9CFF },
-  { "Col_WindowBg",          0x4A4A4AFF },   -- the chrome
-  { "Col_PopupBg",           0x3C3C3CFF },
-  { "Col_Border",            0x363636FF },
-  { "Col_FrameBg",           0x383838FF },   -- anything sunk into the chrome
-  { "Col_FrameBgHovered",    0x424242FF },
-  { "Col_FrameBgActive",     0x464646FF },
-  { "Col_TitleBg",           0x3C3C3CFF },
-  { "Col_TitleBgActive",     0x4A4A4AFF },
-  { "Col_TitleBgCollapsed",  0x3C3C3CFF },
-  { "Col_Button",            0x5E5E5EFF },   -- raised a shade off the chrome
-  { "Col_ButtonHovered",     0x6E6E6EFF },
-  { "Col_ButtonActive",      0x7A7A7AFF },
-  { "Col_CheckMark",         0xD7A93CFF },
-  { "Col_SliderGrab",        0x8A8A8AFF },
-  { "Col_SliderGrabActive",  0xD7A93CFF },
-  { "Col_Separator",         0x5A5A5AFF },
-  { "Col_ScrollbarBg",       0x3A3A3AFF },
-  { "Col_ScrollbarGrab",     0x6A6A6AFF },
-  { "Col_ScrollbarGrabHovered", 0x7A7A7AFF },
-  { "Col_ScrollbarGrabActive",  0x8A8A8AFF },
+  { "Col_Text",              0xDDE1E7FF },
+  { "Col_TextDisabled",      0x8A919CFF },
+  { "Col_WindowBg",          0x23272EFF },   -- the cowl: dark grey, cool
+  { "Col_PopupBg",           0x1B1F25FF },
+  { "Col_Border",            0x14171CFF },
+  { "Col_FrameBg",           0x1A1D23FF },   -- anything sunk into the chrome
+  { "Col_FrameBgHovered",    0x22262DFF },
+  { "Col_FrameBgActive",     0x2A2F37FF },
+  { "Col_TitleBg",           0x1B1F25FF },
+  { "Col_TitleBgActive",     0x23272EFF },
+  { "Col_TitleBgCollapsed",  0x1B1F25FF },
+  { "Col_Button",            0xA9AFBAFF },   -- the suit: light grey, raised
+  { "Col_ButtonHovered",     0xC0C6CFFF },
+  { "Col_ButtonActive",      0x8F96A2FF },
+  { "Col_CheckMark",         0xFFF200FF },
+  { "Col_SliderGrab",        0xA9AFBAFF },
+  { "Col_SliderGrabActive",  0xFFF200FF },
+  { "Col_Separator",         0x3A404AFF },
+  { "Col_ScrollbarBg",       0x1A1D23FF },
+  { "Col_ScrollbarGrab",     0x585F6BFF },
+  { "Col_ScrollbarGrabHovered", 0x6D7581FF },
+  { "Col_ScrollbarGrabActive",  0xA9AFBAFF },
 }
 
--- The warm accent. Live spends it on what is switched on, and so does this: a
--- chosen button and nothing else.
-local SELECTED    = 0xD7A93CFF
+-- The oval. Process yellow, spent on what is switched on - and, unlike every
+-- scheme this window has worn before it, on the notes too.
+local SELECTED    = 0xFFF200FF
+
+-- Ink. The buttons are lighter than the chrome now, so the text on one has to
+-- go dark - on the grey and on the yellow alike. This is the only scheme here
+-- where an unchosen button needs a text colour of its own.
+local INK         = 0x14171CFF
 
 -- The step numbers. Neutral: they show the order and nothing more.
-local STEP        = 0xC8C8C8FF
+local STEP        = 0xBFC5CEFF
 
--- The roll is drawn rather than composed of widgets. Dark like Live's MIDI
--- editor, with the notes in a cool tone so they never read as a selection.
-local NOTE_COL    = 0xA8D8E8FF
-local ROLL_BG     = 0x2E2E2EFF
-local ROLL_BAR    = 0x5A5A5AFF
-local ROLL_BEAT   = 0x3A3A3AFF
-local PLAYHEAD    = 0xF2F2F2FF
-local DIM         = 0x9C9C9CFF
+-- The roll is drawn rather than composed of widgets. Night at the dark end of
+-- the same cool ramp, and the notes in the oval's yellow.
+local NOTE_COL    = SELECTED
+local ROLL_BG     = 0x111419FF
+local ROLL_BAR    = 0x3A404AFF
+local ROLL_BEAT   = 0x1E2228FF
+local PLAYHEAD    = 0xF2F4F7FF
+local DIM         = 0x8A919CFF
 local WARN        = 0xD2483FFF
 
 -- Shifts a colour towards white or black, so the chosen state needs one colour
@@ -185,17 +204,20 @@ local function pushTheme()
 end
 local function popTheme() ImGui.PopStyleColor(ctx, #THEME) end
 
--- An unchosen button wears the theme. A chosen one takes the warm accent, and
--- dark text with it, because the accent is far lighter than the chrome.
+-- An unchosen button wears the theme's grey. A chosen one takes the oval's
+-- yellow. Either way the text on it goes to INK: both are far lighter than the
+-- chrome, so the window's own light text would vanish on them.
 local function pick(label, selected, width)
+  local pushed = 1
   if selected then
     ImGui.PushStyleColor(ctx, ImGui.Col_Button, SELECTED)
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered, shade(SELECTED, 0.18))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive, shade(SELECTED, -0.18))
-    ImGui.PushStyleColor(ctx, ImGui.Col_Text, 0x2A2A2AFF)
+    pushed = 4
   end
+  ImGui.PushStyleColor(ctx, ImGui.Col_Text, INK)
   local hit = ImGui.Button(ctx, label, width or 0, 0)
-  if selected then ImGui.PopStyleColor(ctx, 4) end
+  ImGui.PopStyleColor(ctx, pushed)
   return hit
 end
 

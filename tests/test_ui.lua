@@ -41,6 +41,7 @@ local imgui = {
   buttons = {}, sliders = {}, checkboxes = {},
   bgAlpha = nil, windowBg = nil, windowBgPushes = 0,
   highlights = {}, hovered = {}, held = {}, buttonColourPushes = 0,
+  colStack = {}, buttonInk = {},
   texts = {}, lines = {}, gaps = {},
   textColours = {}, drawColours = {},
   clickTarget = nil, clicked = nil,
@@ -111,9 +112,24 @@ function ImGui.PopID()
   imgui.idDepth = imgui.idDepth - 1
   if imgui.idDepth < 0 then error("PopID without a PushID") end
 end
+-- What a style colour actually is at this moment: the last push of it that
+-- has not been popped. The theme is pushed like anything else, so this is the
+-- real answer and not just "was it ever pushed".
+local function effective(idx)
+  for i = #imgui.colStack, 1, -1 do
+    if imgui.colStack[i].idx == idx then return imgui.colStack[i].col end
+  end
+  return nil
+end
+
 function ImGui.Button(_, label, w, h)
   if type(label) ~= "string" then error("Button label is a " .. type(label)) end
   imgui.buttons[#imgui.buttons + 1] = label
+  -- Recorded per button rather than per frame: a scheme can push dark ink for
+  -- the chosen button alone and leave every other one unreadable, and a frame
+  -- tally cannot tell those two apart.
+  imgui.buttonInk[#imgui.buttons] =
+    { bg = effective(ImGui.Col_Button), text = effective(ImGui.Col_Text) }
   if imgui.clickTarget == #imgui.buttons then
     imgui.clicked = label
     return true
@@ -137,9 +153,11 @@ function ImGui.PushStyleColor(_, idx, col)
   if idx == ImGui.Col_ButtonHovered then imgui.hovered[col] = true end
   if idx == ImGui.Col_ButtonActive  then imgui.held[col] = true end
   if idx == ImGui.Col_Text          then imgui.textColours[col] = true end
+  imgui.colStack[#imgui.colStack + 1] = { idx = idx, col = col }
   imgui.colDepth = imgui.colDepth + 1
 end
 function ImGui.PopStyleColor(_, n)
+  for _ = 1, (n or 1) do imgui.colStack[#imgui.colStack] = nil end
   imgui.colDepth = imgui.colDepth - (n or 1)
   if imgui.colDepth < 0 then error("PopStyleColor without a push") end
 end
@@ -288,6 +306,7 @@ local function frame(clickNth)
   imgui.highlights, imgui.textColours, imgui.drawColours = {}, {}, {}
   imgui.hovered, imgui.held = {}, {}
   imgui.buttonColourPushes = 0
+  imgui.colStack, imgui.buttonInk = {}, {}
   imgui.texts, imgui.lines, imgui.gaps = {}, {}, {}
   local good, e = pcall(deferred)
   if not good then return false, e end
@@ -322,14 +341,50 @@ do
     return n
   end
 
+  local ACCENT = 0xFFF200FF    -- the yellow oval, CMYK 0/0/100/0
+  local INK    = 0x14171CFF
+
+  -- How light a colour is, roughly. Enough to tell "the text will be read off
+  -- this" from "it will not".
+  local function lum(col)
+    local b = math.floor(col / 256) % 256
+    local g = math.floor(col / 65536) % 256
+    local r = math.floor(col / 16777216) % 256
+    return (r * 299 + g * 587 + b * 114) / 1000
+  end
+
   -- Two colours paint buttons: the theme's, and the accent a chosen one takes.
   eq(count(imgui.highlights), 2, "the theme's button colour and the chosen one")
-  ok(imgui.highlights[0xD7A93CFF], "a chosen button takes the warm accent")
+  ok(imgui.highlights[ACCENT], "a chosen button takes the oval's yellow")
   eq(count(imgui.hovered), 2, "each with a hover shade")
   eq(count(imgui.held), 2, "and a held shade")
   for col in pairs(imgui.highlights) do
     ok(col % 256 == 255, ("button colour %08X is fully opaque"):format(col))
   end
+
+  -- Both button colours are far lighter than the chrome, so the window's own
+  -- light text would vanish on either. Every button gets dark ink instead -
+  -- the unchosen ones too, which is what no earlier scheme here needed. Drop
+  -- that push and the grey buttons go unreadable, so it is asserted rather
+  -- than left to be noticed.
+  local worst, seen = nil, 0
+  for i, b in ipairs(imgui.buttonInk) do
+    seen = seen + 1
+    if not worst then
+      if b.bg == nil or b.text == nil then
+        worst = ("button %d (%s) has no colour at all"):format(i, imgui.buttons[i])
+      elseif lum(b.bg) < lum(imgui.windowBg) + 60 then
+        worst = ("button %d (%s) is %08X, not clear of the chrome")
+                :format(i, imgui.buttons[i], b.bg)
+      elseif lum(b.bg) - lum(b.text) < 100 then
+        worst = ("button %d (%s): %08X text on %08X does not read")
+                :format(i, imgui.buttons[i], b.text, b.bg)
+      end
+    end
+  end
+  ok(seen > 0, "buttons record the colours they were drawn in")
+  ok(worst == nil, "every button is dark ink on light grey: " .. tostring(worst))
+  ok(imgui.textColours[INK], "and the ink is the scheme's own")
 
   -- The theme is pushed once a frame and popped once. Col_WindowBg belongs to
   -- the theme alone, so seeing it exactly once is what says so.
@@ -337,8 +392,19 @@ do
   ok(imgui.windowBg ~= nil, "and it sets the window's own background")
   eq(imgui.bgAlpha, 1.0, "which is solid rather than transparent")
 
-  ok(imgui.drawColours[0xA8D8E8FF], "the MIDI notes have a colour of their own")
-  ok(not imgui.highlights[0xA8D8E8FF], "which paints no button")
+  -- The notes share the accent with a chosen button, which every earlier
+  -- scheme here deliberately avoided - the note colour used to be asserted to
+  -- paint no button. One yellow is what was asked for, so what keeps a note
+  -- from reading as a selection is no longer its hue but its ground: the roll
+  -- is drawn far darker than the chrome the buttons sit on. That is the thing
+  -- worth holding, so that is what is checked.
+  ok(imgui.drawColours[ACCENT], "the notes are drawn in the oval's yellow too")
+  local roll
+  for col in pairs(imgui.drawColours) do
+    if not roll or lum(col) < lum(roll) then roll = col end
+  end
+  ok(roll ~= nil and lum(roll) < lum(imgui.windowBg) - 15,
+     "and the roll they sit on is darker than the chrome, so they read apart")
 end
 
 -- The category buttons are the way in to each panel, so find and click them.
@@ -677,7 +743,7 @@ end
 
 do
   frame()
-  local STEP = 0xC8C8C8FF
+  local STEP = 0xBFC5CEFF
 
   local seen = {}
   for _, t in ipairs(imgui.texts) do seen[t] = true end
