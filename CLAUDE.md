@@ -41,6 +41,14 @@ than no control: the drums hide the rate and shuffle entirely for a tom rather
 than showing them greyed. The same instinct removed the old "clicking a degree
 while following turns following off" - there was no mode to get stuck in.
 
+Where a control goes dead there is often a better one to put in its place. A
+sustained melody has no direction and no shape, so the Melody panel does not
+grey them: it drops both and draws the **scale degree** there instead, which is
+the only thing left to choose about one held note. That degree is step 2's
+degree, drawn a second time - `degreeButtons(idPrefix)` is called from both, so
+there is one setting and two places it can be reached, per **one setting shown
+in many places** below.
+
 ## Generators
 
 Each one fills `c.notes` and leaves the block's length in `c.len`.
@@ -224,12 +232,23 @@ clamp.
 When you add a control, nothing needs to be added to the test: the sweep finds
 it. When you add a ReaImGui function, add it to the mock.
 
+**The sweep cannot see one control swapped for another.** It clicks what is on
+screen, so a panel that shows A where it used to show B still draws, still
+balances its pushes and still has the same sliders - the sweep is happy either
+way. Melody's sustain swap was written, and deliberately broken, and every
+suite still passed. Assert a swap directly: count the labels on screen in each
+state, and click the second copy of a shared control to prove it drives the same
+setting rather than a new one. The sweep leaves the key wherever it stopped, so
+such a test clears the ExtState and reloads the script first, or the numerals it
+is counting are not the ones it expects.
+
 **Prove a test bites before believing it.** Every suite here has been checked by
-deliberately breaking the thing it covers and watching it fail. Three real gaps
+deliberately breaking the thing it covers and watching it fail. Four real gaps
 were found that way and would not have been found otherwise: the speller test
 that only covered seven-note scales, the slider sweep that never reached a
-conditionally-shown control, and settings loading that clamped some fields and
-not others. A test that has never failed has not been tested.
+conditionally-shown control, settings loading that clamped some fields and not
+others, and the sweep's blindness to a swapped control described above. A test
+that has never failed has not been tested.
 
 **Name what you assert, do not count it.** The slider check lists the sliders it
 reached rather than counting them, so a control that stops being reachable shows

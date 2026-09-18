@@ -390,6 +390,24 @@ local function commonTail(withOctaves, withOctave, withBars, withGate)
   if withBars then barsRow() end
 end
 
+-- Drawn in step 2, and again inside the Melody panel when a sustained note has
+-- no shape to put there. It is the same setting either way - there is one
+-- scale degree, shown where it is wanted.
+local function degreeButtons(idPrefix)
+  for d = 0, E.scaleLen(st) - 1 do
+    if d > 0 then ImGui.SameLine(ctx) end
+    ImGui.PushID(ctx, idPrefix .. d)
+    if pick(E.degreeNumeral(st, d), st.degree == d, 62) then
+      st.degree = d
+      touched()
+    end
+    tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
+    ImGui.PopID(ctx)
+  end
+  ImGui.SameLine(ctx, 0, 16)
+  dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
+end
+
 ------------------------------------------------------------------------------
 -- Panels
 ------------------------------------------------------------------------------
@@ -471,23 +489,38 @@ panels.Run = function()
 end
 
 panels.Melody = function()
-  dim("The two smallest moves in a melody: a step to the next scale note, or a leap past it.")
+  local held = E.isSustain(st)
+  dim(held
+      and "One note, held for the rate. The smallest melodic thing there is."
+      or  "The two smallest moves in a melody: a step to the next scale note, or a leap past it.")
 
   dim("Interval")
-  local i = chooser("mel", E.INTERVALS, st.interval, 0, 74)
+  local i = chooser("mel", E.INTERVALS, st.interval, 0, 74,
+                    function(x) return x.name end,
+                    function(x) return x.hold and "One note, no move"
+                      or (x.name == "2nd" and "The step" or "A leap") end)
   if i then st.interval = i; touched() end
-  ImGui.SameLine(ctx, 0, 16)
-  if pick("Up", st.melDir == 1, 52) then st.melDir = 1; touched() end
-  ImGui.SameLine(ctx)
-  if pick("Down", st.melDir == 2, 52) then st.melDir = 2; touched() end
 
-  dim("Shape")
-  local s = chooser("shape", E.SHAPES, st.shape, 0, 84, nil, function(_, k)
-    return ({ "The move: two notes",
-              "There and back: three notes",
-              "Every scale note in between" })[k]
-  end)
-  if s then st.shape = s; touched() end
+  -- Nothing moves in a sustained note, so there is no direction to give it and
+  -- no shape to put it in. The shape row makes way for the one thing that does
+  -- decide the note: which degree it is.
+  if held then
+    dim("Scale degree")
+    degreeButtons("meldeg")
+  else
+    ImGui.SameLine(ctx, 0, 16)
+    if pick("Up", st.melDir == 1, 52) then st.melDir = 1; touched() end
+    ImGui.SameLine(ctx)
+    if pick("Down", st.melDir == 2, 52) then st.melDir = 2; touched() end
+
+    dim("Shape")
+    local sh = chooser("shape", E.SHAPES, st.shape, 0, 84, nil, function(_, k)
+      return ({ "The move: two notes",
+                "There and back: three notes",
+                "Every scale note in between" })[k]
+    end)
+    if sh then st.shape = sh; touched() end
+  end
 
   rateRow()
   commonTail(false, true, false, true)
@@ -565,18 +598,7 @@ end
 
 local function drawDegree()
   heading(2, "Scale degree")
-  for d = 0, E.scaleLen(st) - 1 do
-    if d > 0 then ImGui.SameLine(ctx) end
-    ImGui.PushID(ctx, "deg" .. d)
-    if pick(E.degreeNumeral(st, d), st.degree == d, 62) then
-      st.degree = d
-      touched()
-    end
-    tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
-    ImGui.PopID(ctx)
-  end
-  ImGui.SameLine(ctx, 0, 16)
-  dim(("%s   %s"):format(E.noteName(st, st.degree), E.degreeTitle(st, st.degree)))
+  degreeButtons("deg")
   stepGap()
 end
 

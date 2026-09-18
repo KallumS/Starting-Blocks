@@ -458,6 +458,64 @@ do
 end
 
 ------------------------------------------------------------------------------
+-- The Melody panel swaps one control for another
+--
+-- Sustain has no direction and no shape, so the panel puts the scale degree
+-- where the shape was. The click sweep above walks every button and would not
+-- notice if the swap stopped happening - both states draw, both balance, and
+-- the sliders are the same either way. So it is asserted directly.
+------------------------------------------------------------------------------
+
+do
+  -- The sweep above clicked every button, so the key is wherever it left it.
+  -- Come back up on the defaults, where the degrees are the C major numerals.
+  for k in pairs(extstate) do extstate[k] = nil end
+  deferred = nil
+  ok(pcall(dofile, SCRIPT), "the script loads fresh for the Melody check")
+
+  local function tally(label)
+    local n = 0
+    for _, l in ipairs(imgui.buttons) do if l == label then n = n + 1 end end
+    return n
+  end
+
+  ok(clickLabel("Melody"), "switching to Melody")
+  frame()
+  eq(tally("V"), 1, "a moving melody shows the degree once, up in step 2")
+  eq(tally("Single"), 1, "and it has a shape to choose")
+  eq(tally("Up"), 1, "and a direction to move in")
+
+  ok(clickLabel("Sustain"), "choosing Sustain")
+  frame()
+  eq(tally("V"), 2, "a sustained note shows the degree again, down in the panel")
+  eq(tally("Single"), 0, "and the shape is gone rather than greyed")
+  eq(tally("Up"), 0, "as is the direction, which has nothing to point at")
+
+  -- One degree shown twice, not two degrees. So click the panel's copy - the
+  -- second "vi" on screen, never step 2's - and the one saved degree has to
+  -- move. A second, independent degree would leave it where it was.
+  local target
+  frame()
+  do
+    local seen = 0
+    for i, l in ipairs(imgui.buttons) do
+      if l == "vi" then
+        seen = seen + 1
+        if seen == 2 then target = i break end
+      end
+    end
+  end
+  ok(target ~= nil, "the panel draws its own copy of the degree buttons")
+  if target then
+    ok(frame(target), "clicking the panel's copy draws")
+    frame()
+    reaper.atexitHandler()
+    eq(extstate["StartingBlocks:state"]:match("degree=%d+"), "degree=5",
+       "and it moves the one degree there is, not a second one")
+  end
+end
+
+------------------------------------------------------------------------------
 -- Tooltips
 ------------------------------------------------------------------------------
 

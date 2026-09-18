@@ -413,6 +413,40 @@ do
          "filling an octave of the major pentatonic is six notes")
 end
 
+-- Sustain is one note held for the rate. Direction and shape have nothing to
+-- act on, so the generator must ignore them rather than quietly fold them in.
+do
+  local st = inKey("C", "Major", { cat = "Melody",
+    interval = indexOf(E.INTERVALS, "Sustain"), rate = indexOf(E.RATES, "1/8") })
+
+  local r = E.generate(st)
+  eqList(pitches(r), {60}, "a sustain is one note")
+  eqList(starts(r), {0}, "at the top of the block")
+  eq(r.beats, 0.5, "as long as the rate, and no longer")
+  eq(r.notes[1].len, 0.5 * st.gate / 100, "gated like any other note")
+
+  st.rate = indexOf(E.RATES, "1/1")
+  eq(E.generate(st).beats, 4, "a slower rate is a longer note")
+
+  st.melDir = 2
+  st.shape  = indexOf(E.SHAPES, "Fill")
+  eqList(pitches(E.generate(st)), {60},
+         "direction and shape have nothing to do here")
+
+  -- The degree shown in the Melody panel is the one chosen in step 2, so
+  -- moving it has to move the note.
+  st.degree = 4
+  eqList(pitches(E.generate(st)), {67}, "sustaining the fifth sounds the fifth")
+
+  eq(E.blockName(st), "C Major V Melody Sustain 1/1",
+     "and it is named for what it is, with no direction or shape in it")
+
+  st.interval = indexOf(E.INTERVALS, "2nd")
+  st.shape    = indexOf(E.SHAPES, "Single")
+  eq(E.blockName(st), "C Major V Melody Down 2nd Single",
+     "a moving melody is still named the old way")
+end
+
 ------------------------------------------------------------------------------
 -- Bass
 ------------------------------------------------------------------------------

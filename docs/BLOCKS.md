@@ -242,8 +242,8 @@ an arpeggio is.
 
 ### Melody
 
-The two smallest moves a melody can make. An interval, a direction and a
-shape:
+The two smallest moves a melody can make, and the one note that does not
+move at all. An interval, a direction and a shape:
 
 | interval | |
 | --- | --- |
@@ -254,6 +254,7 @@ shape:
 | 6th | a leap |
 | 7th | a leap |
 | Octave | a leap |
+| Sustain | one note, held for the rate |
 
 | shape | |
 | --- | --- |
@@ -264,6 +265,10 @@ shape:
 All of it is diatonic: a 3rd is two scale steps, whatever that is in
 semitones in this key, and an octave is however many steps this scale takes
 to get there - five in a pentatonic, seven in a major scale.
+
+Sustain has nothing to point in a direction and no shape to take, so the
+panel puts the scale degree where the shape was - the same degree chosen in
+step 2, shown again where it is the only thing left to choose.
 
 ### Bass
 
