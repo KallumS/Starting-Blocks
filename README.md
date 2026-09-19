@@ -14,6 +14,7 @@ key. Pick a degree of it. Then pull in the block you want and keep going.
 | `reascripts/sb_midi.lua` | Writing a block out as a standard MIDI file. |
 | `reascripts/sb_place.lua` | Everything that touches REAPER: inserting, exporting, auditioning. |
 | `docs/BLOCKS.md` | Every block it can make. Generated from the engine. |
+| `docs/COLOUR.md` | The colour scheme, for reference and for reuse. |
 
 The keys, scales and note spelling are
 [ScaleView for REAPER](https://github.com/KallumS/ScaleView-for-Reaper)'s,
