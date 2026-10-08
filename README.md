@@ -87,7 +87,8 @@ builds on that degree, so the vii of major reads `vii°` and the III of natural
 minor reads `III`.
 
 Then pick what kind of block you want - **Chord**, **Arpeggio**, **Run**,
-**Melody** - and only that block's options are on screen. The piano roll underneath is whatever you have currently built.
+**Melody** - and only that block's options are on screen. The piano roll
+underneath is whatever you have currently built.
 
 Arpeggios read the chord you set in the Chord tab, so there is one chord picker
 rather than two.
@@ -110,7 +111,8 @@ A chord can be **chopped** into segments and struck again in each one, from
 
 Every block can be **straight, triplet or dotted**, and starts straight. It is
 one setting shown on every panel, and it applies to whatever that panel reads
-as a rate: the chord's chop, the step an arpeggio walks in. A block that is not straight says so in its name.
+as a rate: the chord's chop, the step an arpeggio walks in. A block that is not
+straight says so in its name.
 
 Everything leaves at velocity 100. Shaping a block's dynamics is a job for the
 MIDI editor once it is in the project, not for a slider on every panel here.
