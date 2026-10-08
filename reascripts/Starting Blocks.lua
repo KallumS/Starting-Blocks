@@ -1,9 +1,8 @@
 --[[
  * ReaScript Name: Starting Blocks
  * Description:    A catalogue of the smallest useful pieces of music - chords,
- *                 arpeggios, runs, melodic steps and leaps, bass notes, single
- *                 drum hits - picked by key, scale and scale degree, and put
- *                 into the project as MIDI.
+ *                 arpeggios, runs, melodic steps and leaps - picked by key,
+ *                 scale and scale degree, and put into the project as MIDI.
  *
  * About:          Pick a key. Pick a degree of it. Pick a block. Then insert it
  *                 at the edit cursor, write it out as a .mid, or audition it.
@@ -158,9 +157,8 @@ end
 
 local SAVED = { "root", "scale", "degree", "cat", "family", "dia", "chord",
                 "inv", "oct", "pattern", "runDir", "rate", "rateMod",
-                "octaves", "repeats", "bars", "gate", "chop", "shuffle",
-                "interval", "melDir", "shape", "bassTone", "bassOct",
-                "drumPiece", "drumRate", "baseOct" }
+                "octaves", "repeats", "bars", "gate", "chop",
+                "interval", "melDir", "shape", "baseOct" }
 
 local function saveState()
   local out = {}
@@ -539,58 +537,6 @@ panels.Melody = function()
 
   rateRow()
   commonTail(false, true, false, true)
-end
-
-panels.Bass = function()
-  dim(("One note of the chord, on its own, low.   Chord:  %s"):format(E.chordLabel(st)))
-
-  dim("Chord tone")
-  local t = chooser("btone", E.BASS_TONES, st.bassTone, 0, 62)
-  if t then st.bassTone = t; touched() end
-  ImGui.SameLine(ctx, 0, 16)
-  local c, v = slider("boct", "Octaves down", -st.bassOct, 0, 3, 130)
-  if c then st.bassOct = -v; touched() end
-
-  rateRow()
-  commonTail(false, false, true, true)
-end
-
-panels.Drums = function()
-  dim("One piece of the kit, hit at one rate. Stack a kit up by dropping in several.")
-
-  dim("Piece")
-  local p = chooser("drp", E.DRUM_PIECES, st.drumPiece, 0, 92,
-                    function(x) return x.name end,
-                    function(x) return "General MIDI note " .. x.note end)
-  if p then st.drumPiece = p; touched() end
-
-  local piece = E.DRUM_PIECES[st.drumPiece]
-  if #piece.rates == 0 then
-    -- Nothing to choose yet, and a control that does nothing is worse than no
-    -- control, so say so instead of showing one.
-    dim(("A single hit at the top of the bar. %s is still to be thought through.")
-        :format(piece.name))
-  else
-    dim(piece.start > 0
-        and ("Every  -  starting on beat %d"):format(piece.start + 1)
-        or  "Every  -  starting at the top of the bar")
-    for i, name in ipairs(piece.rates) do
-      if i > 1 then ImGui.SameLine(ctx) end
-      ImGui.PushID(ctx, "drate" .. i)
-      if pick(name, st.drumRate == name, 54) then st.drumRate = name; touched() end
-      ImGui.PopID(ctx)
-    end
-    ImGui.SameLine(ctx, 0, 16)
-    modRow()
-
-    dim("Shuffle")
-    local c, v = slider("shuffle", "Shuffle %", st.shuffle, 0, 100, 150)
-    if c then st.shuffle = v; touched() end
-    tip("Pushes every second hit later. At 100 it lands two thirds of the way " ..
-        "through the pair, which is the triplet feel a shuffle is named after.")
-  end
-
-  commonTail(false, false, true, false)
 end
 
 ------------------------------------------------------------------------------

@@ -236,38 +236,9 @@ M.INTERVALS = {
   { name = "Sustain", hold = true },
 }
 M.SHAPES     = { "Single", "Return", "Fill" }
-M.BASS_TONES = { "Root", "3rd", "5th", "7th" }
 M.INVERSIONS = { "Root", "1st", "2nd", "3rd" }
 
--- A drum block is one piece of the kit hit at one rate. There are no named
--- patterns: four on the floor is a kick every 1/4, one-and-three is a kick
--- every 1/2, a backbeat is a snare from beat two every 1/2. Naming those
--- would be naming things the rates already say.
---
--- `rates` is what that piece offers, always ending at 1/1, which is a single
--- hit. `start` is where its first hit falls, in beats from the top of the bar,
--- so the snare begins on the two. An empty `rates` is a single hit and nothing
--- to choose.
-M.DRUM_PIECES = {
-  { name = "Kick",      note = 36, start = 0,
-    rates = { "1/16", "1/8", "1/4", "1/2", "1/1" } },
-  { name = "Snare",     note = 38, start = 1,
-    rates = { "1/8", "1/4", "1/2", "1/1" } },
-  { name = "Closed HH", note = 42, start = 0,
-    rates = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" } },
-  { name = "Open HH",   note = 46, start = 0,
-    rates = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" } },
-  { name = "Crash",     note = 49, start = 0,
-    rates = { "1/16", "1/8", "1/4", "1/2", "1/1" } },
-  { name = "Ride",      note = 51, start = 0,
-    rates = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" } },
-  -- The toms are a single hit until they are thought through.
-  { name = "Low Tom",   note = 41, start = 0, rates = {} },
-  { name = "Mid Tom",   note = 47, start = 0, rates = {} },
-  { name = "High Tom",  note = 50, start = 0, rates = {} },
-}
-
-M.CATEGORIES = { "Chord", "Arpeggio", "Run", "Melody", "Bass", "Drums" }
+M.CATEGORIES = { "Chord", "Arpeggio", "Run", "Melody" }
 
 ------------------------------------------------------------------------------
 -- Settings
@@ -290,8 +261,6 @@ function M.newState()
     lengthMode = "Repeats",                -- how an arpeggio or run is measured
     gate = 90,
     interval = 1, melDir = 1, shape = 1,   -- a step, up, on its own
-    bassTone = 1, bassOct = -1,
-    drumPiece = 1, drumRate = "1/1", shuffle = 0,
     baseOct = 4,                           -- C4 is 60
     barBeats = 4,                          -- what the project says a bar is
   }
@@ -388,8 +357,8 @@ function M.rateByName(name)
 end
 
 -- Straight, triplet or dotted. One setting, shown on every panel, applied
--- wherever that panel reads a rate: the chord's chop, the drum's spacing, and
--- the step an arpeggio, run, melody or bass line walks in.
+-- wherever that panel reads a rate: the chord's chop, and the step an
+-- arpeggio, run or melody walks in.
 function M.modMul(st) return M.RATE_MODS[st.rateMod].mul end
 
 -- What to put after a rate in a block's name, so "1/8" and "1/8 triplet" are
@@ -399,17 +368,6 @@ function M.modSuffix(st)
   if name == "Triplet" then return "T" end
   if name == "Dotted"  then return "." end
   return ""
-end
-
--- How often the chosen piece is hit, or nil when it only ever gets one hit.
-function M.drumStep(st)
-  local piece = M.DRUM_PIECES[st.drumPiece]
-  if #piece.rates == 0 then return nil end
-  for _, r in ipairs(piece.rates) do
-    if r == st.drumRate then return M.rateByName(r) * M.modMul(st) end
-  end
-  -- 1/1 is always last
-  return M.rateByName(piece.rates[#piece.rates]) * M.modMul(st)
 end
 
 function M.rateBeats(st)
@@ -443,26 +401,15 @@ function M.clampState(st)
   st.interval = pin(st.interval, 1, #M.INTERVALS, 1)
   st.melDir   = pin(st.melDir, 1, 2, 1)
   st.shape    = pin(st.shape, 1, #M.SHAPES, 1)
-  st.bassTone = pin(st.bassTone, 1, #M.BASS_TONES, 1)
-  st.drumPiece   = pin(st.drumPiece, 1, #M.DRUM_PIECES, 1)
   st.chop        = pin(st.chop, 1, #M.RATES, #M.RATES)
-
-  -- The drum rate is kept by name rather than by index, so switching from a
-  -- kick to a snare keeps 1/8 as 1/8 instead of sliding it up the list. A name
-  -- the piece does not offer falls back to a single hit.
-  local known = false
-  for _, r in ipairs(M.RATES) do if r.name == st.drumRate then known = true end end
-  if not known then st.drumRate = "1/1" end
 
   -- Ranges the sliders declare. A value outside one of these is what ReaImGui
   -- refuses, so they have to agree with the UI.
   st.inv      = pin(st.inv, 0, 3, 0)
   st.oct      = pin(st.oct, -3, 3, 0)
-  st.bassOct  = pin(st.bassOct, -3, 0, -1)
   st.octaves  = pin(st.octaves, 1, 4, 1)
   st.repeats  = pin(st.repeats, 1, M.MAX_REPEATS, 1)
   st.gate     = pin(st.gate, 5, 100, 90)
-  st.shuffle  = pin(st.shuffle, 0, 100, 0)
   st.baseOct  = pin(st.baseOct, 0, 8, 4)
   -- Bars are picked from a list rather than typed, and the list has fractions
   -- in it, so snap to the nearest entry instead of rounding to an integer.
@@ -496,7 +443,7 @@ end
 -- Generators
 --
 -- Each one fills c.notes and says how long the block it made is, in c.len.
--- The bar-based blocks - chord, bass, drums - are handed a length and fill it.
+-- The bar-based block - the chord - is handed a length and fills it.
 -- The others decide their own: a melodic cell is as long as its notes, and an
 -- arpeggio or a run is as long as the number of repeats asks for.
 ------------------------------------------------------------------------------
@@ -615,14 +562,6 @@ function M.passLength(st)
   return 0
 end
 
--- Shuffle pushes every second hit later. At 100 it lands two thirds of the way
--- through the pair, which is the triplet feel a shuffle is named after;
--- anything less is on the way there.
-function M.swingOffset(st, index, step)
-  if index % 2 == 0 then return 0 end
-  return (st.shuffle or 0) / 100 * step / 3
-end
-
 local GEN = {}
 
 GEN.Chord = function(st, c)
@@ -714,51 +653,6 @@ GEN.Melody = function(st, c)
   c.len = M.melodyBeats(st)
 end
 
-GEN.Bass = function(st, c)
-  -- The bass reads the chord as it is stacked, so inversion is ignored: voice
-  -- 1 is the root, 2 the third, 3 the fifth, 4 the seventh.
-  local tones = M.chordTones(st, st.degree, 0)
-  if #tones == 0 then return end
-  local pitch = tones[math.min(st.bassTone, #tones)] + st.bassOct * 12
-  local step  = M.rateBeats(st)
-  local pos   = 0
-  while pos < c.len - 1e-9 do
-    addNote(c, pos, math.min(step * st.gate / 100, c.len - pos), pitch, M.VELOCITY)
-    if c.truncated then return end
-    pos = pos + step
-  end
-end
-
-GEN.Drums = function(st, c)
-  local piece = M.DRUM_PIECES[st.drumPiece]
-  local step  = M.drumStep(st)
-
-  -- The pattern belongs to a bar and repeats with it, but the block can be a
-  -- fraction of one, so walk bars and drop anything past the end of the block.
-  local bar = 0
-  while bar * st.barBeats < c.len - 1e-9 do
-    local base = bar * st.barBeats
-
-    if not step then                          -- a single hit, nothing to space
-      if base + piece.start < c.len - 1e-9 then
-        addNote(c, base + piece.start, 0.1, piece.note, M.VELOCITY)
-      end
-    else
-      local i, at = 0, piece.start
-      while at < st.barBeats - 1e-9 do
-        local hit = base + at + M.swingOffset(st, i, step)
-        if hit < c.len - 1e-9 then
-          addNote(c, hit, 0.1, piece.note, M.VELOCITY)
-          if c.truncated then return end
-        end
-        i  = i + 1
-        at = piece.start + i * step
-      end
-    end
-    bar = bar + 1
-  end
-end
-
 ------------------------------------------------------------------------------
 -- The block
 ------------------------------------------------------------------------------
@@ -805,16 +699,7 @@ function M.blockName(st)
     return ("%s %s %s Melody %s %s %s"):format(root, scale, where,
       (st.melDir == 1) and "Up" or "Down",
       M.INTERVALS[st.interval].name, M.SHAPES[st.shape])
-  elseif st.cat == "Bass" then
-    return ("%s %s %s Bass %s %s"):format(root, scale, where,
-      M.BASS_TONES[st.bassTone], rate)
   end
-  -- A single hit has no second hit to push, so a piece with no rates never
-  -- claims a shuffle it cannot have used.
-  local piece = M.DRUM_PIECES[st.drumPiece]
-  if #piece.rates == 0 then return "Drum " .. piece.name end
-  local swing = (st.shuffle > 0) and (" shuffle " .. st.shuffle) or ""
-  return ("Drum %s %s%s%s"):format(piece.name, st.drumRate, M.modSuffix(st), swing)
 end
 
 -- The whole point of the file. Returns the notes in quarter notes from the

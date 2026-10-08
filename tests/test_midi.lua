@@ -145,8 +145,9 @@ for _, meta in ipairs(sixEight.metas) do
   end
 end
 
--- A drum block: sixteen repeats of one pitch. Every note-off must land before
--- the next note-on at the same pitch or the notes run together.
+-- Sixteen short repeats of one pitch, as a chopped chord or a fast run makes.
+-- Every note-off must land before the next note-on at the same pitch or the
+-- notes run together.
 local hits = {}
 for i = 0, 15 do hits[#hits + 1] = { start = i * 0.25, len = 0.1, pitch = 42, vel = 90 } end
 local hat = parseMidi(SB.build(hits, 4, "hats", 120, 4, 4))

@@ -18,3 +18,4 @@ preference with no consequence, and anything already explained where it lives -
 | [0003](0003-colour-doc-kept-by-hand.md) | `docs/COLOUR.md` is kept by hand, not generated |
 | [0004](0004-sustain-swaps-the-shape-control.md) | Sustain swaps the shape control for the scale degree |
 | [0005](0005-assert-per-widget-not-per-frame.md) | The UI test asserts per widget, not per frame |
+| [0006](0006-remove-the-bass-and-drums-blocks.md) | The Bass and Drums blocks are removed |

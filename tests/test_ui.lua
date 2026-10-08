@@ -467,8 +467,8 @@ ok(clicks > 200, "and there were enough of them to mean something (" .. clicks .
 ------------------------------------------------------------------------------
 
 do
-  -- A panel can hide a control behind another one - the drums only offer a
-  -- shuffle for a piece that is hit more than once - so driving the sliders
+  -- A panel can hide a control behind another one - a held melody note has no
+  -- direction or shape to offer - so driving the sliders
   -- with each panel in its default state misses those. Click each control in
   -- turn and drive the sliders from there, which reaches the conditional ones
   -- without the test needing to know which they are.
@@ -512,8 +512,7 @@ do
   -- Named rather than counted, so a control that stops being reachable shows
   -- up as a missing name instead of a number that quietly went down by one.
   eq(table.concat(found, ", "),
-     "Gate %##gate, Octave##oct, Octaves down##boct, Octaves##octaves, " ..
-     "Repeats##repeats, Shuffle %##shuffle",
+     "Gate %##gate, Octave##oct, Octaves##octaves, Repeats##repeats",
      "every slider in the window is reached")
 
   imgui.toggleBoxes = true
@@ -614,12 +613,12 @@ end
 ------------------------------------------------------------------------------
 
 do
-  clickLabel("Drums")
+  clickLabel("Melody")
   frame()
   reaper.atexitHandler()
   local blob = extstate["StartingBlocks:state"]
   ok(blob and blob ~= "", "closing saves the settings")
-  ok(blob:match("cat=Drums"), "including which block was on screen")
+  ok(blob:match("cat=Melody"), "including which block was on screen")
 
   -- Saving one thing and loading another is the classic way for settings to
   -- rot, so load the script again on top of what it just wrote and check it
@@ -631,16 +630,17 @@ do
   local g, err3 = frame()
   ok(g, "and draws: " .. tostring(err3))
   reaper.atexitHandler()
-  ok(extstate["StartingBlocks:state"]:match("cat=Drums"),
+  ok(extstate["StartingBlocks:state"]:match("cat=Melody"),
      "on the block it was left on, not the default")
 end
 
 ------------------------------------------------------------------------------
 -- Settings from a project that knew a different version
 --
--- A saved block can name a chord, a drum piece or an octave that this build
--- does not have. Every one of those is used to look something up or to fill a
--- slider, so none of them may arrive unchecked.
+-- A saved block can name a chord, a block or an octave that this build does
+-- not have - Bass and Drums among them, which this build no longer offers.
+-- Every one of those is used to look something up or to fill a slider, so
+-- none of them may arrive unchecked.
 ------------------------------------------------------------------------------
 
 do
@@ -676,6 +676,22 @@ do
   deferred = nil
   ok(pcall(dofile, SCRIPT), "a blob that is not settings at all loads")
   ok(frame(), "and draws")
+
+  -- Left on Bass or Drums by an older build: the window opens on the chord,
+  -- draws, and saves the chord back rather than the block that is gone.
+  for _, gone in ipairs({ "Bass", "Drums" }) do
+    extstate["StartingBlocks:state"] =
+      "cat=" .. gone .. ";bassTone=2;bassOct=-2;drumPiece=3;drumRate=1/8;shuffle=40"
+    deferred = nil
+    ok(pcall(dofile, SCRIPT), "settings left on " .. gone .. " load")
+    ok(frame(), "and draw")
+    reaper.atexitHandler()
+    local saved = extstate["StartingBlocks:state"]
+    ok(saved:match("cat=Chord"), "and open on the chord instead of " .. gone)
+    ok(not saved:match("drumPiece") and not saved:match("bassTone")
+       and not saved:match("shuffle"),
+       "and the settings only " .. gone .. " used are not written back")
+  end
 end
 
 ------------------------------------------------------------------------------
@@ -694,8 +710,6 @@ do
     { "octaves=4",  "octaves=1" },
     { "gate=100",   "gate=5" },
     { "repeats=" .. E.MAX_REPEATS, "repeats=1" },
-    { "shuffle=100", "shuffle=0" },
-    { "bassOct=0",  "bassOct=-3" },
     { "bars=8",     "bars=1" },
     { "chop=" .. #E.RATES, "chop=1" },
     { "inv=3",      "inv=0" },
@@ -715,11 +729,11 @@ do
     end
   end
 
-  -- And all of them at once, on every drum piece, since the drums hide a
-  -- slider behind which piece is chosen.
+  -- And all of them at once, clicking every button on the Melody panel, since
+  -- a held note hides controls the other intervals show.
   extstate["StartingBlocks:state"] =
     "oct=3;octaves=4;gate=100;repeats=" .. E.MAX_REPEATS ..
-    ";shuffle=100;bassOct=-3;bars=8;chop=1;inv=3;baseOct=8;cat=Drums"
+    ";bars=8;chop=1;inv=3;baseOct=8;cat=Melody"
   deferred = nil
   ok(pcall(dofile, SCRIPT), "loads with every setting at an extreme")
   frame()
@@ -730,7 +744,7 @@ do
     if not g then worst = ("button %d: %s"):format(i, tostring(err2)); break end
     if not frame() then worst = "the frame after button " .. i; break end
   end
-  ok(worst == nil, "every drum piece draws at those extremes: " .. tostring(worst))
+  ok(worst == nil, "every melody draws at those extremes: " .. tostring(worst))
 end
 
 ------------------------------------------------------------------------------

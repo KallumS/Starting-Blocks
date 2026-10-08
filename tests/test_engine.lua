@@ -35,7 +35,7 @@ end
 local function list(t) return "{" .. table.concat(t, ", ") .. "}" end
 
 -- Compares lists of numbers within a rounding error, or lists of strings
--- outright: the drum rates are names, the note starts are numbers.
+-- outright: the kinds of block are names, the note starts are numbers.
 local function eqList(got, want, what)
   checks = checks + 1
   local same = #got == #want
@@ -448,162 +448,9 @@ do
 end
 
 ------------------------------------------------------------------------------
--- Bass
-------------------------------------------------------------------------------
-
-do
-  local st = inKey("C", "Major", { cat = "Bass", rate = indexOf(E.RATES, "1/4") })
-  local r = E.generate(st)
-  eqList(pitches(r), {48, 48, 48, 48}, "the root, an octave down, on every beat")
-  eqList(starts(r), {0, 1, 2, 3}, "four to the bar")
-
-  st.bassTone = indexOf(E.BASS_TONES, "5th")
-  eq(pitches(E.generate(st))[1], 55, "the fifth of the chord, an octave down")
-
-  -- Inversion moves the chord on screen but must not move the bass.
-  st.bassTone = indexOf(E.BASS_TONES, "Root")
-  st.inv = 2
-  eq(pitches(E.generate(st))[1], 48, "the bass ignores inversion")
-
-  st.inv = 0
-  st.bassOct = -2
-  eq(pitches(E.generate(st))[1], 36, "two octaves down")
-end
-
-------------------------------------------------------------------------------
--- Drums
---
--- There are no named patterns any more. The point of the rework is that the
--- patterns fall out of the rates: a kick every 1/4 is four on the floor, a
--- kick every 1/2 is one and three, a snare from beat two every 1/2 is the
--- backbeat. These check that they really do.
-------------------------------------------------------------------------------
-
-local function drumsFor(name, rate, overrides)
-  local st = state(overrides)
-  st.cat = "Drums"
-  st.drumPiece = indexOf(E.DRUM_PIECES, name)
-  st.drumRate = rate
-  return E.generate(st)
-end
-
-do
-  eqList(starts(drumsFor("Kick", "1/4")), {0, 1, 2, 3},
-         "a kick every 1/4 is four on the floor")
-  eqList(starts(drumsFor("Kick", "1/2")), {0, 2},
-         "a kick every 1/2 is one and three")
-  eqList(starts(drumsFor("Kick", "1/1")), {0},
-         "a kick every 1/1 is one hit at the top of the bar")
-  eqList(starts(drumsFor("Kick", "1/8")), {0,0.5,1,1.5,2,2.5,3,3.5},
-         "a kick every 1/8")
-  eq(#drumsFor("Kick", "1/16").notes, 16, "a kick every 1/16 is sixteen hits")
-
-  -- The snare starts on the two, which is what makes the backbeat fall out.
-  eqList(starts(drumsFor("Snare", "1/2")), {1, 3},
-         "a snare from beat two every 1/2 is the backbeat")
-  eqList(starts(drumsFor("Snare", "1/1")), {1}, "and every 1/1 is just the two")
-  eqList(starts(drumsFor("Snare", "1/4")), {1, 2, 3}, "every 1/4 from the two")
-  eqList(starts(drumsFor("Snare", "1/8")), {1,1.5,2,2.5,3,3.5}, "every 1/8 from the two")
-
-  eqList(pitches(drumsFor("Kick", "1/1")), {36}, "the kick is General MIDI 36")
-  eqList(pitches(drumsFor("Snare", "1/1")), {38}, "the snare is 38")
-  eq(#drumsFor("Closed HH", "1/32").notes, 32, "the hi-hat goes down to 1/32")
-  eq(#drumsFor("Ride", "1/32").notes, 32, "so does the ride")
-
-  -- Two bars is the same bar twice.
-  eqList(starts(drumsFor("Kick", "1/2", { bars = 2 })), {0, 2, 4, 6},
-         "two bars of one and three")
-
-  -- A shorter bar drops what runs past its end rather than squeezing it in.
-  eqList(starts(drumsFor("Kick", "1/4", { barBeats = 3 })), {0, 1, 2},
-         "a 3/4 bar holds three quarter-note kicks")
-  eqList(starts(drumsFor("Snare", "1/1", { barBeats = 1 })), {},
-         "a bar too short to reach beat two gets no snare at all")
-end
-
--- Each piece offers only the rates it should, and 1/1 is always last so that
--- an unknown rate falls back to a single hit.
-do
-  local want = {
-    Kick        = { "1/16", "1/8", "1/4", "1/2", "1/1" },
-    Snare       = { "1/8", "1/4", "1/2", "1/1" },
-    ["Closed HH"] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
-    ["Open HH"] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
-    Crash       = { "1/16", "1/8", "1/4", "1/2", "1/1" },
-    Ride        = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1" },
-    ["Low Tom"] = {}, ["Mid Tom"] = {}, ["High Tom"] = {},
-  }
-  for _, piece in ipairs(E.DRUM_PIECES) do
-    eqList(piece.rates, want[piece.name] or { "?" },
-           piece.name .. " offers the rates it should")
-    if #piece.rates > 0 then
-      eq(piece.rates[#piece.rates], "1/1", piece.name .. ": 1/1 is last")
-    end
-    checks = checks + 1
-    local known = false
-    for _, r in ipairs(E.RATES) do
-      for _, pr in ipairs(piece.rates) do if r.name == pr then known = true end end
-    end
-    if #piece.rates > 0 and not known then
-      fail(piece.name .. " offers a rate that is not a rate")
-    end
-  end
-
-  -- The toms are a single hit until they are thought through.
-  for _, name in ipairs({ "Low Tom", "Mid Tom", "High Tom" }) do
-    eqList(starts(drumsFor(name, "1/8")), {0}, name .. " is one hit")
-    eq(#drumsFor(name, "1/8", { bars = 2 }).notes, 2, name .. ": one a bar")
-  end
-
-  -- A rate the piece does not offer falls back to a single hit rather than
-  -- guessing at something near it.
-  eqList(starts(drumsFor("Snare", "1/16")), {1},
-         "a snare asked for 1/16, which it does not offer, gets one hit")
-end
-
--- Shuffle pushes every second hit later, and only the second ones.
-do
-  eqList(starts(drumsFor("Closed HH", "1/8", { shuffle = 0 })),
-         {0,0.5,1,1.5,2,2.5,3,3.5}, "no shuffle is straight")
-
-  local swung = starts(drumsFor("Closed HH", "1/8", { shuffle = 100 }))
-  eqList(swung, {0, 2/3, 1, 1+2/3, 2, 2+2/3, 3, 3+2/3},
-         "full shuffle lands the off-beats two thirds through the pair")
-
-  local half = starts(drumsFor("Closed HH", "1/8", { shuffle = 50 }))
-  eq(half[1], 0, "the on-beats never move")
-  ok(math.abs(half[2] - (0.5 + 0.5 * 0.5 / 3)) < 1e-9,
-     "half shuffle is half way there")
-  ok(half[2] > 0.5 and half[2] < 2/3, "which is between straight and full")
-
-  -- Every hit still has to land inside the block it belongs to, however far
-  -- the shuffle pushes it.
-  for _, piece in ipairs({ "Kick", "Snare", "Closed HH", "Ride" }) do
-    for _, rate in ipairs(E.DRUM_PIECES[indexOf(E.DRUM_PIECES, piece)].rates) do
-      local r = drumsFor(piece, rate, { shuffle = 100, bars = 2 })
-      for _, n in ipairs(r.notes) do
-        checks = checks + 1
-        if n.start < 0 or n.start >= r.beats then
-          fail(("%s %s at full shuffle put a hit at %s, outside a %s beat block")
-               :format(piece, rate, n.start, r.beats))
-        end
-      end
-    end
-  end
-
-  -- A single hit has no second hit to push.
-  eqList(starts(drumsFor("Low Tom", "1/1", { shuffle = 100 })), {0},
-         "shuffle does nothing to a single hit")
-  eq(drumsFor("Low Tom", "1/1", { shuffle = 100 }).name, "Drum Low Tom",
-     "and the name does not claim one")
-  eq(drumsFor("Kick", "1/8", { shuffle = 60 }).name, "Drum Kick 1/8 shuffle 60",
-     "a shuffle that did something is named")
-end
-
-------------------------------------------------------------------------------
 -- How long a block is
 --
--- Chords, bass and drums are measured in bars, and a bar can now be a quarter
+-- A chord is measured in bars, and a bar can now be a quarter
 -- or a half of one. An arpeggio or a run is measured either in passes or by
 -- filling that same length, and which is the user's choice.
 ------------------------------------------------------------------------------
@@ -622,23 +469,6 @@ do
 
   chord.bars = 0.5
   eq(E.generate(chord).beats, 2, "a half-bar chord is two beats")
-
-  -- The bass, which repeats within it.
-  local bass = inKey("C", "Major", { cat = "Bass", bars = 0.5,
-                                     rate = indexOf(E.RATES, "1/4") })
-  eqList(starts(E.generate(bass)), {0, 1}, "a half bar of quarter-note bass is two notes")
-  bass.bars = 0.25
-  eqList(starts(E.generate(bass)), {0}, "a quarter bar is one")
-
-  -- The drums, whose pattern belongs to a bar but whose block need not be one.
-  eqList(starts(drumsFor("Kick", "1/4", { bars = 1 })), {0, 1, 2, 3}, "a bar of kicks")
-  eqList(starts(drumsFor("Kick", "1/4", { bars = 0.5 })), {0, 1},
-         "half a bar keeps the first half of the pattern")
-  eqList(starts(drumsFor("Kick", "1/4", { bars = 0.25 })), {0}, "a quarter keeps one")
-  eqList(starts(drumsFor("Snare", "1/2", { bars = 0.25 })), {},
-         "a quarter bar never reaches the snare on the two")
-  eq(E.generate(state{ cat = "Drums", bars = 0.5 }).beats, 2,
-     "and the block is as long as it says")
 
   -- A fractional block still ends where it says it does, whatever is in it.
   for _, cat in ipairs(E.CATEGORIES) do
@@ -692,8 +522,8 @@ do
   eq(#E.generate(run).notes, 4, "four quarter notes")
   eqList(pitches(E.generate(run)), {60, 62, 64, 65}, "the first four of the run")
 
-  -- Melody, chord, bass and drums are measured one way only, so the mode must
-  -- not leak into them.
+  -- Melody and chord are measured one way only, so the mode must not leak
+  -- into them.
   local mel = inKey("C", "Major", { cat = "Melody", lengthMode = "Bars", bars = 8 })
   eq(E.generate(mel).beats, E.melodyBeats(mel),
      "a melody is its own length whatever the mode says")
@@ -703,7 +533,7 @@ end
 -- Straight, triplet and dotted
 --
 -- One setting, and every block that reads a rate has to read it: the chord's
--- chop and the drum's spacing as well as the step the others walk in.
+-- chop as well as the step the others walk in.
 ------------------------------------------------------------------------------
 
 do
@@ -712,16 +542,6 @@ do
 
   local TRIPLET = indexOf(E.RATE_MODS, "Triplet")
   local DOTTED  = indexOf(E.RATE_MODS, "Dotted")
-
-  -- The drums.
-  eqList(starts(drumsFor("Kick", "1/4")), {0, 1, 2, 3}, "straight quarters")
-  eqList(starts(drumsFor("Kick", "1/4", { rateMod = TRIPLET })),
-         {0, 2/3, 4/3, 2, 8/3, 10/3},
-         "quarter-note triplets are six in the bar, three in the space of two")
-  eqList(starts(drumsFor("Kick", "1/4", { rateMod = DOTTED })), {0, 1.5, 3},
-         "dotted quarters are half as long again")
-  eqList(starts(drumsFor("Snare", "1/4", { rateMod = DOTTED })), {1, 2.5},
-         "and still start where the piece starts")
 
   -- The chord's chop.
   local st = inKey("C", "Major")
@@ -743,21 +563,7 @@ do
   arp.rateMod = DOTTED
   eq(E.rateBeats(arp), 0.75, "a dotted eighth")
 
-  -- Shuffle is measured against whatever the step turned out to be, so the two
-  -- compose rather than fighting.
-  local swung = starts(drumsFor("Closed HH", "1/8",
-                                { rateMod = TRIPLET, shuffle = 100 }))
-  local step = 0.5 * 2 / 3
-  ok(math.abs(swung[2] - (step + step / 3)) < 1e-9,
-     "a full shuffle on triplets is measured against the triplet")
-
   -- Names have to tell the three apart, or two blocks land on one filename.
-  eq(drumsFor("Kick", "1/4", { rateMod = TRIPLET }).name, "Drum Kick 1/4T",
-     "a triplet drum is named T")
-  eq(drumsFor("Kick", "1/4", { rateMod = DOTTED }).name, "Drum Kick 1/4.",
-     "a dotted one is named with a dot")
-  eq(drumsFor("Kick", "1/4").name, "Drum Kick 1/4", "a straight one is not marked")
-
   local named = inKey("C", "Major", { cat = "Arpeggio", rate = indexOf(E.RATES, "1/8") })
   eq(E.blockName(named), "C Major I Arp Triad Up 1/8", "a straight arpeggio")
   named.rateMod = TRIPLET
@@ -776,7 +582,10 @@ end
 ------------------------------------------------------------------------------
 
 do
-  local st = inKey("C", "Major", { cat = "Bass" })
+  -- A held melody note is one note as long as the step, so it shows the gate
+  -- with nothing else in the way.
+  local st = inKey("C", "Major", { cat = "Melody",
+                                   interval = indexOf(E.INTERVALS, "Sustain") })
   st.rate = indexOf(E.RATES, "1/16")
   eq(E.rateBeats(st), 0.25, "a sixteenth is a quarter of a beat")
   st.rateMod = indexOf(E.RATE_MODS, "Triplet")
@@ -831,7 +640,7 @@ do
     checks = checks + 1
     if n.pitch < 0 or n.pitch > 127 then fail("pitch " .. n.pitch .. " is outside MIDI") end
   end
-  local low = inKey("C", "Major", { cat = "Bass", bassOct = -3, baseOct = 0 })
+  local low = inKey("C", "Major", { cat = "Run", oct = -3, baseOct = 0, octaves = 4 })
   for _, n in ipairs(E.generate(low).notes) do
     checks = checks + 1
     if n.pitch < 0 then fail("pitch " .. n.pitch .. " is below MIDI") end
@@ -896,24 +705,12 @@ do
   eq(modeAfter("Furlongs"), E.LENGTH_MODES[1], "an invented one does not")
   eq(modeAfter(nil), E.LENGTH_MODES[1], "nor does nothing at all")
 
-  -- The drum rate is a name too.
-  local function rateAfter(v)
-    local st = E.newState()
-    st.drumRate = v
-    E.clampState(st)
-    return st.drumRate
-  end
-  eq(rateAfter("1/8"), "1/8", "a real rate survives")
-  eq(rateAfter("1/3"), "1/1", "one that is not a rate falls back to a single hit")
-  eq(rateAfter(7), "1/1", "and so does a number")
-
   -- Everything else comes back inside its own table.
   local wild = E.newState()
   for _, k in ipairs({ "root", "scale", "family", "chord", "dia", "rate",
                        "rateMod", "runDir", "pattern", "interval", "melDir",
-                       "shape", "bassTone", "drumPiece", "chop", "inv", "oct",
-                       "bassOct", "octaves", "repeats", "gate", "baseOct",
-                       "shuffle", "degree" }) do
+                       "shape", "chop", "inv", "oct", "octaves", "repeats",
+                       "gate", "baseOct", "degree" }) do
     wild[k] = 9999
   end
   wild.cat = "Sousaphone"
@@ -921,13 +718,11 @@ do
   eq(wild.cat, E.CATEGORIES[1], "an unknown block falls back to the first")
   ok(wild.root <= #E.ROOTS and wild.root >= 1, "root is inside its table")
   ok(wild.chord <= #E.CHORDS, "chord is inside its table")
-  ok(wild.drumPiece <= #E.DRUM_PIECES, "drum piece is inside its table")
   ok(wild.chop <= #E.RATES, "chop is inside its table")
   ok(wild.degree <= E.scaleLen(wild) - 1, "degree is inside the scale")
   ok(wild.repeats <= E.MAX_REPEATS, "repeats is inside its range")
-  ok(wild.shuffle <= 100, "shuffle is inside its range")
   ok(wild.gate <= 100, "gate is inside its range")
-  ok(wild.oct <= 3 and wild.bassOct <= 0, "the octaves are inside theirs")
+  ok(wild.oct <= 3, "the octave is inside its range")
 
   -- And a clamped state still generates, for every block.
   for _, cat in ipairs(E.CATEGORIES) do
@@ -946,9 +741,24 @@ end
 eq(#E.CHORDS, 78, "seventy-eight chords")
 eq(#E.SCALES, 16, "sixteen scales")
 eq(#E.ROOTS, 18, "eighteen roots")
-eq(#E.DRUM_PIECES, 9, "nine drum pieces")
 eq(E.VELOCITY, 100, "one velocity for everything")
-eq(#E.CATEGORIES, 6, "six kinds of block")
+-- Named rather than counted, so a kind that goes missing or comes back shows
+-- up as a name. Bass and Drums were taken out once they were no longer
+-- needed; a chord's own lowest note is still the chord's, set by inversion.
+eqList(E.CATEGORIES, { "Chord", "Arpeggio", "Run", "Melody" }, "the kinds of block")
+
+-- A setting saved while Bass and Drums still existed opens on the chord rather
+-- than on a block that is not there, and the fields only they used are left
+-- alone - nothing reads them now.
+for _, gone in ipairs({ "Bass", "Drums" }) do
+  local st = E.newState()
+  st.cat, st.bassTone, st.drumPiece, st.shuffle = gone, 99, 99, 400
+  E.clampState(st)
+  eq(st.cat, "Chord", "a saved " .. gone .. " block opens as a chord")
+  checks = checks + 1
+  local good, err = pcall(E.generate, st)
+  if not good then fail("and it generates: " .. tostring(err)) end
+end
 
 do
   local seenSym, seenName = {}, {}
