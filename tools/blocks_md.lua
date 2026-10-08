@@ -199,44 +199,6 @@ w("panel puts the scale degree where the shape was - the same degree chosen in")
 w("step 2, shown again where it is the only thing left to choose.")
 w()
 
-w("### Bass")
-w()
-local tones = {}
-for i, t in ipairs(E.BASS_TONES) do tones[i] = t end
-w("One note of the chord, on its own, low. Inversion is ignored here, so the")
-w("voices are always counted from the root: " .. table.concat(tones, ", ") .. ".")
-w("Up to three octaves down, repeating at the chosen rate.")
-w()
-
-w("### Drums")
-w()
-w("One piece of the kit, hit at one rate. Stack a kit up by dropping in")
-w("several. The note numbers are General MIDI, so the blocks land on the right")
-w("pads in anything that follows the map.")
-w()
-w("There are no named patterns. The patterns fall out of the rates instead: a")
-w("kick every 1/4 is four on the floor, a kick every 1/2 is one and three, and")
-w("a snare - which starts on the two - every 1/2 is the backbeat. Naming those")
-w("would be naming what the rates already say.")
-w()
-w("| piece | note | first hit | every |")
-w("| --- | --- | --- | --- |")
-for _, p in ipairs(E.DRUM_PIECES) do
-  local every = #p.rates > 0 and table.concat(p.rates, ", ") or "one hit only"
-  local first = p.start > 0 and ("beat " .. (p.start + 1)) or "top of the bar"
-  w(("| %s | %d | %s | %s |"):format(p.name, p.note, first, every))
-end
-w()
-w("1/1 is always the last rate a piece offers, and it means a single hit. The")
-w("toms are a single hit and nothing to choose until they are thought through.")
-w("A bar too short to reach a piece's first hit gets no hit at all.")
-w()
-w("**Shuffle** pushes every second hit later, from 0 to 100. At 100 it lands")
-w("two thirds of the way through the pair, which is the triplet feel a shuffle")
-w("is named after; anything less is on the way there. A piece that is only hit")
-w("once has no second hit to push. Shuffle is measured against whatever the")
-w("step turned out to be, so it composes with a triplet rather than fighting it.")
-w()
 w("## Timing")
 w()
 local names, beats = {}, {}
@@ -254,8 +216,8 @@ w("Every block can be " .. table.concat(mods, ", ") ..
 w("half - and straight is where it starts. It is one setting shown on every")
 w("panel, because a block is in one feel or the other and it is the same")
 w("question wherever it is asked. It applies to whatever that panel reads as a")
-w("rate: the chord's chop, the spacing of a drum, and the step an arpeggio, run,")
-w("melody or bass line walks in. A block that is not straight says so in its")
+w("rate: the chord's chop, and the step an arpeggio, run or melody walks in. A")
+w("block that is not straight says so in its")
 w("name, `T` for a triplet and `.` for a dotted one, so two feels of the same")
 w("rate are not two files fighting over one filename.")
 w()
@@ -263,12 +225,10 @@ w("**Gate** is how much of the step the note actually holds, from 5% to 100%.")
 w()
 local lengths = {}
 for i, b in ipairs(E.BAR_LENGTHS) do lengths[i] = b.name end
-w("Chords, bass and drums are measured in **bars**: " ..
+w("Chords are measured in **bars**: " ..
   table.concat(lengths, ", ") .. ". A bar is however long the")
 w("project's time signature says it is, and a quarter or a half of one is still")
-w("a block - a single chord stab is a quarter-bar chord. A drum pattern belongs")
-w("to a bar, so a block shorter than a bar keeps the front of the pattern and")
-w("drops the rest.")
+w("a block - a single chord stab is a quarter-bar chord.")
 w()
 w("Arpeggios and runs take either of those lengths **or** a number of repeats.")
 w("A melody is however long its own notes make it.")

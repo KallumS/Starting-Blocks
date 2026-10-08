@@ -1,8 +1,8 @@
 # Starting Blocks
 
 A catalogue of the smallest useful pieces of music - chords, arpeggios, runs,
-melodic steps, leaps and held notes, bass notes, single drum hits - that you
-pick by key, scale and scale degree and then drop into a REAPER project.
+melodic steps, leaps and held notes - that you pick by key, scale and scale
+degree and then drop into a REAPER project.
 
 The idea is that a song starts from parts, not from a blank arrange. Pick a
 key. Pick a degree of it. Then pull in the block you want and keep going.
@@ -87,14 +87,14 @@ builds on that degree, so the vii of major reads `vii°` and the III of natural
 minor reads `III`.
 
 Then pick what kind of block you want - **Chord**, **Arpeggio**, **Run**,
-**Melody**, **Bass**, **Drums** - and only that block's options are on screen.
-The piano roll underneath is whatever you have currently built.
+**Melody** - and only that block's options are on screen. The piano roll
+underneath is whatever you have currently built.
 
-Arpeggios and bass notes read the chord you set in the Chord tab, so there is
-one chord picker rather than three.
+Arpeggios read the chord you set in the Chord tab, so there is one chord picker
+rather than two.
 
-Chords, bass and drums are measured in **bars**, from a quarter of one up to
-eight - a single chord stab is a quarter-bar chord. Arpeggios and runs are
+Chords are measured in **bars**, from a quarter of one up to eight - a single
+chord stab is a quarter-bar chord. Arpeggios and runs are
 measured either the same way or in **repeats**, and you pick which: one repeat
 is one pass of whatever the direction produced, so the block comes out as long
 as the arpeggio and no longer, while a bar length cycles the pass and cuts it
@@ -107,14 +107,12 @@ same degree you chose in step 2, offered again where it is the only thing left
 to decide.
 
 A chord can be **chopped** into segments and struck again in each one, from
-1/64 up to 1/1. The drums have no named patterns: a kick every 1/4 is four on
-the floor, a kick every 1/2 is one and three, a snare every 1/2 is the
-backbeat, and each piece has a **shuffle** that pushes every second hit later.
+1/64 up to 1/1.
 
 Every block can be **straight, triplet or dotted**, and starts straight. It is
 one setting shown on every panel, and it applies to whatever that panel reads
-as a rate: the chord's chop, the spacing of a drum, the step an arpeggio walks
-in. A block that is not straight says so in its name.
+as a rate: the chord's chop, the step an arpeggio walks in. A block that is not
+straight says so in its name.
 
 Everything leaves at velocity 100. Shaping a block's dynamics is a job for the
 MIDI editor once it is in the project, not for a slider on every panel here.
@@ -148,7 +146,7 @@ tools/test.sh
 This is the part that changed most when the plugin became a script. As a JSFX
 the engine was EEL2, which only runs inside REAPER, so what a converging
 arpeggio actually came out as could only be checked by reading it. In Lua it
-can be asked. `tests/test_engine.lua` is that question, 352 times.
+can be asked. `tests/test_engine.lua` is that question, several hundred times.
 
 `tests/test_ui.lua` cannot tell you the window looks right. It can tell you
 that every panel draws, that no call reaches a ReaImGui function that does not

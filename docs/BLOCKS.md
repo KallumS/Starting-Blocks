@@ -65,7 +65,7 @@ Tone** only when it really is a semitone below the tonic; otherwise it is a
 
 ## Blocks
 
-**Chord**, **Arpeggio**, **Run**, **Melody**, **Bass**, **Drums**.
+**Chord**, **Arpeggio**, **Run**, **Melody**.
 
 ### Chords
 
@@ -270,45 +270,6 @@ Sustain has nothing to point in a direction and no shape to take, so the
 panel puts the scale degree where the shape was - the same degree chosen in
 step 2, shown again where it is the only thing left to choose.
 
-### Bass
-
-One note of the chord, on its own, low. Inversion is ignored here, so the
-voices are always counted from the root: Root, 3rd, 5th, 7th.
-Up to three octaves down, repeating at the chosen rate.
-
-### Drums
-
-One piece of the kit, hit at one rate. Stack a kit up by dropping in
-several. The note numbers are General MIDI, so the blocks land on the right
-pads in anything that follows the map.
-
-There are no named patterns. The patterns fall out of the rates instead: a
-kick every 1/4 is four on the floor, a kick every 1/2 is one and three, and
-a snare - which starts on the two - every 1/2 is the backbeat. Naming those
-would be naming what the rates already say.
-
-| piece | note | first hit | every |
-| --- | --- | --- | --- |
-| Kick | 36 | top of the bar | 1/16, 1/8, 1/4, 1/2, 1/1 |
-| Snare | 38 | beat 2 | 1/8, 1/4, 1/2, 1/1 |
-| Closed HH | 42 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
-| Open HH | 46 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
-| Crash | 49 | top of the bar | 1/16, 1/8, 1/4, 1/2, 1/1 |
-| Ride | 51 | top of the bar | 1/32, 1/16, 1/8, 1/4, 1/2, 1/1 |
-| Low Tom | 41 | top of the bar | one hit only |
-| Mid Tom | 47 | top of the bar | one hit only |
-| High Tom | 50 | top of the bar | one hit only |
-
-1/1 is always the last rate a piece offers, and it means a single hit. The
-toms are a single hit and nothing to choose until they are thought through.
-A bar too short to reach a piece's first hit gets no hit at all.
-
-**Shuffle** pushes every second hit later, from 0 to 100. At 100 it lands
-two thirds of the way through the pair, which is the triplet feel a shuffle
-is named after; anything less is on the way there. A piece that is only hit
-once has no second hit to push. Shuffle is measured against whatever the
-step turned out to be, so it composes with a triplet rather than fighting it.
-
 ## Timing
 
 | rate | 1/64 | 1/32 | 1/16 | 1/8 | 1/4 | 1/2 | 1/1 |
@@ -319,18 +280,16 @@ Every block can be straight, triplet, dotted - a triplet is two thirds of the st
 half - and straight is where it starts. It is one setting shown on every
 panel, because a block is in one feel or the other and it is the same
 question wherever it is asked. It applies to whatever that panel reads as a
-rate: the chord's chop, the spacing of a drum, and the step an arpeggio, run,
-melody or bass line walks in. A block that is not straight says so in its
+rate: the chord's chop, and the step an arpeggio, run or melody walks in. A
+block that is not straight says so in its
 name, `T` for a triplet and `.` for a dotted one, so two feels of the same
 rate are not two files fighting over one filename.
 
 **Gate** is how much of the step the note actually holds, from 5% to 100%.
 
-Chords, bass and drums are measured in **bars**: 1/4, 1/2, 1, 2, 4, 8. A bar is however long the
+Chords are measured in **bars**: 1/4, 1/2, 1, 2, 4, 8. A bar is however long the
 project's time signature says it is, and a quarter or a half of one is still
-a block - a single chord stab is a quarter-bar chord. A drum pattern belongs
-to a bar, so a block shorter than a bar keeps the front of the pattern and
-drops the rest.
+a block - a single chord stab is a quarter-bar chord.
 
 Arpeggios and runs take either of those lengths **or** a number of repeats.
 A melody is however long its own notes make it.
