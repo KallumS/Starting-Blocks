@@ -125,8 +125,11 @@ for fam = 2, #E.FAMILIES do
     w()
   end
 end
-w("Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three")
-w("octaves either way.")
+w("Chords can be inverted, and moved by up to three octaves either way. A chord")
+w("has one inversion for each of its notes after the root: a triad two (the")
+w("3rd, then the 5th in the bass), a seventh three (then the 7th), a ninth four")
+w("(then the 9th), up to six for a thirteenth; a power chord one. The notes under")
+w("the one in the bass go up by octaves until they sit above it.")
 w()
 w("**Chop** cuts the block into segments and strikes the chord again in each")
 w("one: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2 or 1/1. At 1/1 over one bar that is a")

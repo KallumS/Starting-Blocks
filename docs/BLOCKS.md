@@ -199,8 +199,11 @@ they fit the key. Semitones are from the chord's root.
 | `Fr+6` | French Sixth | 0 4 6 10 |
 | `Ger+6` | German Sixth | 0 4 7 10 |
 
-Chords can be inverted (root, 1st, 2nd, 3rd) and moved by up to three
-octaves either way.
+Chords can be inverted, and moved by up to three octaves either way. A chord
+has one inversion for each of its notes after the root: a triad two (the
+3rd, then the 5th in the bass), a seventh three (then the 7th), a ninth four
+(then the 9th), up to six for a thirteenth; a power chord one. The notes under
+the one in the bass go up by octaves until they sit above it.
 
 **Chop** cuts the block into segments and strikes the chord again in each
 one: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2 or 1/1. At 1/1 over one bar that is a

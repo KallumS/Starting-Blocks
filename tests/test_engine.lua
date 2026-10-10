@@ -211,7 +211,7 @@ do
   eqList(E.chordTones(st, 0, 1), {64, 67, 72}, "first inversion")
   eqList(E.chordTones(st, 0, 2), {67, 72, 76}, "second inversion")
   eqList(E.chordTones(st, 0, 3), {67, 72, 76},
-         "a triad cannot invert past its third voice")
+         "a triad has no third inversion: asked for one, it gives its second")
 
   -- An absolute chord is stacked on the degree whatever the key says.
   st.family = indexOf(E.FAMILIES, "6ths & 7ths")
@@ -219,6 +219,85 @@ do
   eqList(E.chordTones(st, 0, 0), {60, 64, 67, 71}, "Cmaj7")
   eqList(E.chordTones(st, 1, 0), {62, 66, 69, 73},
          "the same shape on the second degree, out of key and on purpose")
+end
+
+-- A chord has one inversion for each of its notes after the root, and
+-- inversion n puts its (n+1)th note, counted up the stack, in the bass: the
+-- 3rd, the 5th, the 7th, the 9th...
+do
+  local st = inKey("C", "Major")
+  eq(E.inversionCount(st), 2, "a triad has two inversions")
+  st.dia = indexOf(E.DIATONIC, "7th")
+  eq(E.inversionCount(st), 3, "a seventh three")
+  eqList(E.chordTones(st, 4, 3), {77, 79, 83, 86}, "the V7's third inversion has its 7th, F, in the bass")
+  st.dia = indexOf(E.DIATONIC, "9th")
+  eq(E.inversionCount(st), 4, "a ninth four")
+  eqList(E.chordTones(st, 0, 4), {74, 76, 79, 83, 84},
+         "Cmaj9's fourth inversion: the 9th in the bass, the root lifted above it")
+  st.dia = indexOf(E.DIATONIC, "13th")
+  eq(E.inversionCount(st), 6, "a thirteenth six")
+  eq(E.chordTones(st, 0, 6)[1], 81, "its sixth inversion has the 13th, A, in the bass")
+  st.dia = indexOf(E.DIATONIC, "5th")
+  eq(E.inversionCount(st), 1, "a power chord one")
+  eqList(E.inversionNames(st), {"Root", "1st"}, "and offers only those")
+
+  st.dia = indexOf(E.DIATONIC, "Triad")
+  st.inv = 6
+  E.clampState(st)
+  eq(st.inv, 2, "a 6th inversion asked of a triad is its 2nd")
+  st.dia, st.inv = indexOf(E.DIATONIC, "13th"), 6
+  E.clampState(st)
+  eq(st.inv, 6, "and of a thirteenth, kept")
+
+  -- An Up arpeggio of an inverted thirteenth climbs: the lifted notes go
+  -- back in order, not on the end.
+  st.cat, st.pattern, st.octaves, st.lengthMode, st.repeats = "Arpeggio", 1, 1, "Repeats", 1
+  st.inv = 1
+  local arp = pitches(E.generate(st))
+  local climbs = true
+  for i = 2, #arp do if arp[i] <= arp[i - 1] then climbs = false end end
+  ok(climbs, "an Up arpeggio of an inverted thirteenth only climbs: " .. list(arp))
+end
+
+-- Every chord, in every family, on every degree of several scales: each
+-- inversion keeps the chord's notes, puts the right one in the bass, and stacks
+-- the rest above it without a doubled pitch.
+do
+  local seen, bad = 0, nil
+  for _, key in ipairs({ {"C", "Major"}, {"F#", "Harm Minor"}, {"Eb", "Maj Pent"}, {"A", "Dim W-H"} }) do
+    local st = inKey(key[1], key[2])
+    local function check(label)
+      for degree = 0, E.scaleLen(st) - 1 do
+        local root = E.chordTones(st, degree, 0)
+        local order, pcs = {}, {}
+        for _, p in ipairs(root) do
+          if not pcs[p % 12] then pcs[p % 12] = true; order[#order + 1] = p % 12 end
+        end
+        local n = E.inversionCount(st, degree)
+        if n ~= #order - 1 then bad = bad or (label .. ": " .. n .. " inversions for " .. #order .. " notes") end
+        for inv = 0, n do
+          local t = E.chordTones(st, degree, inv)
+          seen = seen + 1
+          local got, dup = {}, false
+          for i, p in ipairs(t) do
+            if i > 1 and p <= t[i - 1] then dup = true end
+            got[p % 12] = true
+          end
+          for pc in pairs(pcs) do if not got[pc] then dup = true end end
+          for pc in pairs(got) do if not pcs[pc] then dup = true end end
+          if dup or t[1] % 12 ~= order[inv + 1] then
+            bad = bad or (("%s %s %s on degree %d, inversion %d: %s"):format(
+              key[1], key[2], label, degree, inv, list(t)))
+          end
+        end
+      end
+    end
+    st.family = 1
+    for d, dia in ipairs(E.DIATONIC) do st.dia = d; check(dia.name) end
+    for c, ch in ipairs(E.CHORDS) do st.family, st.chord = ch.fam, c; check(ch.sym) end
+  end
+  ok(bad == nil, "every inversion of every chord is right" .. (bad and (": " .. bad) or ""))
+  ok(seen > 5000, "and there were plenty of them: " .. seen)
 end
 
 -- Chopping the chord strikes it again in each segment.
