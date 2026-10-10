@@ -778,5 +778,38 @@ do
   ok(imgui.textColours[STEP], "the step numbers are neutral, not an accent")
 end
 
+------------------------------------------------------------------------------
+-- A chord offers the inversions it has and no more: a triad its 1st and 2nd,
+-- a thirteenth up to its 6th. "6th" is also a chord on this panel, so a
+-- thirteenth shows it twice.
+------------------------------------------------------------------------------
+
+do
+  for k in pairs(extstate) do extstate[k] = nil end
+  deferred = nil
+  ok(pcall(dofile, SCRIPT), "the script loads fresh for the inversion check")
+  local function tally(label)
+    local n = 0
+    for _, l in ipairs(imgui.buttons) do if l == label then n = n + 1 end end
+    return n
+  end
+
+  ok(clickLabel("Chord"), "switching to Chord")
+  ok(clickLabel("Triad"), "choosing a triad")
+  frame()
+  eq(tally("1st") + tally("2nd"), 2, "a triad offers its 1st and 2nd inversions")
+  eq(tally("3rd"), 0, "and no 3rd, which it does not have")
+
+  ok(clickLabel("7th"), "choosing a seventh")
+  frame()
+  eq(tally("3rd"), 1, "a seventh offers its 3rd inversion")
+  eq(tally("4th"), 0, "and stops there")
+
+  ok(clickLabel("13th"), "choosing a thirteenth")
+  frame()
+  eq(tally("4th") + tally("5th"), 3, "a thirteenth offers its 4th and 5th (and 5th is a chord here too)")
+  eq(tally("6th"), 2, "and its 6th, beside the 6th chord")
+end
+
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))
 os.exit(failures == 0 and 0 or 1)

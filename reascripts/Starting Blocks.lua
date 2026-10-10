@@ -461,8 +461,12 @@ panels.Chord = function()
   end
 
   ImGui.Dummy(ctx, 0, 4)
+  -- Only the inversions this chord has: two for a triad, three for a
+  -- seventh, up to six for a thirteenth. A chord with fewer than the one
+  -- chosen takes its last.
   dim("Inversion")
-  local v = chooser("inv", E.INVERSIONS, st.inv + 1, 0, 58)
+  st.inv = math.min(st.inv, E.inversionCount(st))
+  local v = chooser("inv", E.inversionNames(st), st.inv + 1, 0, 58)
   if v then st.inv = v - 1; touched() end
 
   dim("Chop")

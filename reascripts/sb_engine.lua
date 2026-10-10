@@ -236,7 +236,9 @@ M.INTERVALS = {
   { name = "Sustain", hold = true },
 }
 M.SHAPES     = { "Single", "Return", "Fill" }
-M.INVERSIONS = { "Root", "1st", "2nd", "3rd" }
+-- As many as the chord has members, less one: a triad has two inversions, a
+-- seventh three, a thirteenth six (M.inversionCount says how many a chord has).
+M.INVERSIONS = { "Root", "1st", "2nd", "3rd", "4th", "5th", "6th" }
 
 M.CATEGORIES = { "Chord", "Arpeggio", "Run", "Melody" }
 
@@ -330,9 +332,9 @@ function M.degreeTitle(st, degree)
   return M.DEGREE_TITLES[degree + 1] or ("Degree " .. (degree + 1))
 end
 
--- The chord's pitches, ascending. inv lifts that many of the lowest voices an
--- octave, one at a time.
-function M.chordTones(st, degree, inv)
+-- The chord stacked as the tables write it, root first: in thirds, or in the
+-- order a named chord lists its notes.
+local function stacked(st, degree)
   local tones = {}
   if st.family == 1 then
     for _, off in ipairs(M.DIATONIC[st.dia].offsets) do
@@ -344,10 +346,59 @@ function M.chordTones(st, degree, inv)
       tones[#tones + 1] = base + iv
     end
   end
-  for _ = 1, math.min(inv or 0, #tones - 1) do
-    local lifted = table.remove(tones, 1) + 12
-    tones[#tones + 1] = lifted
+  return tones
+end
+
+-- The chord's members in stacked order, each note name once: what an
+-- inversion can put in the bass. A pentatonic thirteenth comes back round to
+-- its root, and a note the chord already has is not a new member.
+local function members(tones)
+  local seen, out = {}, {}
+  for i, p in ipairs(tones) do
+    if not seen[p % 12] then seen[p % 12] = true; out[#out + 1] = i end
   end
+  return out
+end
+
+-- How many inversions the chord has: one for each member that can go in the
+-- bass after the root. Two for a triad, three for a seventh, four for a ninth,
+-- six for a thirteenth; one for a power chord.
+function M.inversionCount(st, degree)
+  return math.max(0, #members(stacked(st, degree or st.degree or 0)) - 1)
+end
+
+function M.inversionNames(st)
+  local out = {}
+  for i = 1, M.inversionCount(st) + 1 do out[i] = M.INVERSIONS[i] end
+  return out
+end
+
+-- The chord's pitches, ascending. Inversion n puts the chord's (n+1)th member
+-- in the bass - the 3rd for the 1st, the 5th for the 2nd, the 7th for the 3rd,
+-- the 9th for the 4th - and lifts the members under it by octaves until they
+-- sit above it. One octave is not always enough: a ninth's root lifted once
+-- is still under the ninth.
+function M.chordTones(st, degree, inv)
+  local tones = stacked(st, degree)
+  local idx   = members(tones)
+  inv = math.max(0, math.min(math.floor(inv or 0), #idx - 1))
+  if inv > 0 then
+    local cut  = idx[inv + 1]
+    local bass = tones[cut]
+    local kept, lifted = {}, {}
+    for i = cut, #tones do kept[#kept + 1] = tones[i] end
+    for i = 1, cut - 1 do lifted[#lifted + 1] = tones[i] end
+    local taken = {}
+    for _, p in ipairs(kept) do taken[p] = true end
+    for _, p in ipairs(lifted) do
+      p = p + 12
+      while p <= bass or taken[p] do p = p + 12 end
+      taken[p] = true
+      kept[#kept + 1] = p
+    end
+    tones = kept
+  end
+  table.sort(tones)
   return tones
 end
 
@@ -405,7 +456,6 @@ function M.clampState(st)
 
   -- Ranges the sliders declare. A value outside one of these is what ReaImGui
   -- refuses, so they have to agree with the UI.
-  st.inv      = pin(st.inv, 0, 3, 0)
   st.oct      = pin(st.oct, -3, 3, 0)
   st.octaves  = pin(st.octaves, 1, 4, 1)
   st.repeats  = pin(st.repeats, 1, M.MAX_REPEATS, 1)
@@ -431,6 +481,10 @@ function M.clampState(st)
   if not found then st.cat = M.CATEGORIES[1] end
 
   st.degree = pin(st.degree, 0, M.scaleLen(st) - 1, 0)
+  -- As many inversions as this chord has, so last, once the chord, the scale
+  -- and the degree it reads are sound: a ninth's 4th is nothing on a triad,
+  -- which stops at its 2nd.
+  st.inv    = pin(st.inv, 0, M.inversionCount(st), 0)
   return st
 end
 
