@@ -175,7 +175,7 @@ shrinks `E.MAX_NOTES` to test it rather than pretending some setting reaches it.
 
 ## Finding your way down the window
 
-The three things done in order - **1 Key, 2 Scale degree, 3 Building block** -
+The three things done in order - **1 Key, 2 Scale Degree, 3 Building Block** -
 are numbered, with a gap after each. The options and the buttons under them are
 not a step: they are what you do once the three are chosen.
 
@@ -183,6 +183,15 @@ There were arrows drawn in those gaps. Taking them out and **leaving the gap**
 separated the steps just as well with nothing on screen to read, which is the
 better answer. The test counts the gaps rather than the arrows now, so losing
 one still fails.
+
+**The window's words follow Apple's writing guidelines** (0008, after
+Noterator's 0053): buttons, headings and toggles in title style ("Insert at
+Cursor", "Export MIDI File", "Scale Degree"), tooltips and status messages in
+sentence case, an error saying what to do next, an em dash between phrases, and
+no programmer words on screen ("buffer"). Only the labels change: stored
+values (`cat`, `lengthMode`, rate names) and the engine's tables are left as
+they are, and a word in `sb_engine.lua` would also have to reach the notation fork,
+Noterator and Miderator, which carry it unchanged.
 
 The step numbers are **neutral, not an accent**, and the test holds that in
 place: the step colour is pushed as a text colour nowhere but on the numbers.
@@ -340,5 +349,5 @@ single biggest reason the port was worth doing, and the reason the engine must
 stay free of `reaper.`
 
 A "place with the mouse" mode was built - it asked which track the pointer was
-over and what time it pointed at - and removed, because Insert at cursor does
+over and what time it pointed at - and removed, because Insert at Cursor does
 the job.

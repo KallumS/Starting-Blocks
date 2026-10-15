@@ -14,3 +14,4 @@ happened on a given day, read these.
 | [2026-09-23](2026-09-23.md) | Melody Sustain, the palette, and the colour guide. |
 | [2026-10-08](2026-10-08.md) | The Bass and Drums blocks removed. |
 | [2026-10-10](2026-10-10.md) | Every chord offers the inversions it has. |
+| [2026-10-14](2026-10-14-apple-writing.md) | The window's words to Apple's writing guidelines. |

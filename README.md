@@ -119,9 +119,9 @@ MIDI editor once it is in the project, not for a slider on every panel here.
 
 ## Getting a block out
 
-- **Insert at cursor** puts it on the selected track at the edit cursor, as one
+- **Insert at Cursor** puts it on the selected track at the edit cursor, as one
   MIDI item named after the block.
-- **Export .mid** writes it into `<REAPER resource path>/Starting Blocks/`.
+- **Export MIDI File** writes it into `<REAPER resource path>/Starting Blocks/`.
   Point the Media Explorer at that folder and every block you export is one
   drag away from the arrange.
 - **Audition** plays it through the virtual keyboard, so a record-armed and
