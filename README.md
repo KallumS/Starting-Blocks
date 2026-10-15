@@ -130,6 +130,21 @@ MIDI editor once it is in the project, not for a slider on every panel here.
   nearest wake-up, not on the sample. Anything that needs to be exact wants the
   block in the project, where REAPER plays it properly.
 
+## Bigger text, and the keyboard
+
+The window follows Apple's design guidelines for Mac apps
+([what that covers](docs/apple-hig-review.md)).
+
+- **View → Text Size** makes everything bigger, up to twice the size: 100%,
+  125%, 150% or 200%. **Cmd+=** and **Cmd+-** (Ctrl on Windows) do the same,
+  and **Cmd+0** goes back to 100%. It remembers your choice.
+- **The keyboard alone works.** Press **Tab** or an arrow key and a white
+  ring appears round a control; Tab and the arrows move it, and **Space** or
+  **Return** clicks. **Esc** closes the window.
+- **Messages appear at the top** and stay until you click **Dismiss**.
+- A chosen button is yellow **and** has a dark bar under its name, so it
+  doesn't depend on seeing colour.
+
 ## Checking it
 
 ```

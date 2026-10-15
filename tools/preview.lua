@@ -55,6 +55,25 @@ local function effective(idx)
 end
 
 function ImGui.CreateContext(n) return { n = n } end
+-- What the HIG work calls (decision 0009): fonts and sizes are recorded as
+-- nothing, the View menu is closed, and no key is ever held.
+for i, k in ipairs({ "StyleVar_FramePadding", "StyleVar_ItemSpacing",
+                     "StyleVar_ItemInnerSpacing", "Key_Equal", "Key_KeypadAdd",
+                     "Key_Minus", "Key_KeypadSubtract", "Key_0" }) do
+  ImGui[k] = 100 + i
+end
+ImGui.WindowFlags_MenuBar, ImGui.ConfigFlags_NavEnableKeyboard, ImGui.Mod_Shortcut = 1024, 1, 4096
+function ImGui.CreateFont(_, size) return { size = size } end
+function ImGui.Attach() end
+function ImGui.PushFont() end
+function ImGui.PopFont() end
+function ImGui.PushStyleVar() end
+function ImGui.PopStyleVar() end
+function ImGui.CalcTextSize(_, s) return #s * 7, 13 end
+function ImGui.GetItemRectMin() return 0, 0 end
+function ImGui.GetItemRectMax() return 100, 28 end
+function ImGui.BeginMenuBar() return false end
+function ImGui.GetKeyMods() return 0 end
 function ImGui.SetNextWindowSize() end
 function ImGui.SetNextWindowBgAlpha() end
 function ImGui.Begin() return true, true end
@@ -154,6 +173,7 @@ reaper = {
   RefreshToolbar2 = function() end,
   time_precise = function() return 0 end,
   GetExtState = function() return "" end,
+  GetOS = function() return "macOS-arm64" end,
   SetExtState = function() end,
   Master_GetTempo = function() return 120 end,
   TimeMap_GetTimeSigAtTime = function() return 4, 4, 120 end,

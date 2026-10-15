@@ -209,6 +209,7 @@ function ImGui.GetContentRegionAvail() return 960, 400 end
 function ImGui.IsMouseClicked() return imgui.mouseClicked == true end
 function ImGui.IsWindowHovered() return imgui.windowHovered ~= false end
 
+local HIG = dofile(HERE .. "/hig_mock.lua")(ImGui)
 setmetatable(ImGui, { __index = function(_, k)
   error("the script called ImGui." .. tostring(k) .. ", which the mock does not have")
 end })
@@ -248,6 +249,8 @@ reaper = {
   time_precise = function() return now end,
 
   GetExtState = function(s, k) return extstate[s .. ":" .. k] or "" end,
+  -- string GetOS(): "Win32", "Win64", "OSX32", "OSX64", "macOS-arm64", or "Other"
+  GetOS = function() return "macOS-arm64" end,
   SetExtState = function(s, k, v) extstate[s .. ":" .. k] = v end,
 
   Master_GetTempo = function() return 120 end,
@@ -809,6 +812,38 @@ do
   frame()
   eq(tally("4th") + tally("5th"), 3, "a thirteenth offers its 4th and 5th (and 5th is a chord here too)")
   eq(tally("6th"), 2, "and its 6th, beside the 6th chord")
+end
+
+------------------------------------------------------------------------------
+-- Apple's Human Interface Guidelines (decision 0009)
+------------------------------------------------------------------------------
+
+do
+  local function fresh()
+    for k in pairs(extstate) do extstate[k] = nil end
+    dofile(SCRIPT)
+    frame()
+  end
+  local function hframe() local good, e = frame(); if not good then error(e) end end
+  HIG.check({
+    ok = ok, eq = eq, frame = hframe,
+    loaded = fresh,
+    warned = function()
+      fresh()
+      local keep = reaper.GetSelectedTrack
+      reaper.GetSelectedTrack = function() return nil end
+      clickLabel("Insert at Cursor")
+      reaper.GetSelectedTrack = keep
+      hframe()
+      return "No track is selected."
+    end,
+    dismiss = function() clickLabel("Dismiss"); hframe() end,
+    quit = function() reaper.atexitHandler() end,
+    restart = function() dofile(SCRIPT) end,
+    saved = function() return extstate["StartingBlocks:view"] end,
+    setSaved = function(v) extstate["StartingBlocks:view"] = v end,
+    sizeKey = "textSize",
+  })
 end
 
 io.write(("%d checks, %d failure%s\n"):format(checks, failures, failures == 1 and "" or "s"))
