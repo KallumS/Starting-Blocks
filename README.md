@@ -58,7 +58,8 @@ where you can run it, give it a shortcut, or right-click a toolbar button to
 put it there.
 
 It is a toggle, so running the action again closes the window. Escape closes it
-too.
+too - unless the keyboard's ring is on a control or a menu is open, when the
+first Escape only lets go of that.
 
 ### If something goes wrong
 
@@ -129,6 +130,27 @@ MIDI editor once it is in the project, not for a slider on every panel here.
   second, so this is a preview rather than a performance - a note lands on the
   nearest wake-up, not on the sample. Anything that needs to be exact wants the
   block in the project, where REAPER plays it properly.
+
+## Bigger text, and the keyboard
+
+The window follows Apple's design guidelines for Mac apps
+([what that covers](docs/apple-hig-review.md)).
+
+- **View → Text Size** makes everything bigger, up to twice the size: 100%,
+  125%, 150% or 200%. **Cmd+=** and **Cmd+-** (Ctrl on Windows) do the same,
+  and **Cmd+0** goes back to 100%. It remembers your choice.
+- **The keyboard alone works.** Press **Tab** or an arrow key and a white
+  ring appears round a control; Tab and the arrows move it, and **Space** or
+  **Return** clicks. **Esc** lets go of the ring (or closes the menu) first;
+  with nothing in hand, it closes the window.
+- **Rows wrap** at the window's edge at any text size, so nothing is cut off,
+  and the window can't be made so small that a control is out of reach.
+- **Tooltips** say what each slider and the Loop box do, and appear for the
+  control the keyboard is on as well as the one under the pointer.
+- **The window's title names the block** you are looking at.
+- **Messages appear at the top** and stay until you click **Dismiss**.
+- A chosen button is yellow **and** has a dark bar under its name, so it
+  doesn't depend on seeing colour.
 
 ## Checking it
 
