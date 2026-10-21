@@ -209,6 +209,167 @@ function ImGui.GetContentRegionAvail() return 960, 400 end
 function ImGui.IsMouseClicked() return imgui.mouseClicked == true end
 function ImGui.IsWindowHovered() return imgui.windowHovered ~= false end
 
+------------------------------------------------------------------------------
+-- What the final HIG sweep added (16 October 2026), and a ruler
+--
+-- The ruler lays the window out as ImGui does, a line at a time: an item after
+-- SameLine goes beside the one before, anything else starts a new line. So a
+-- row that would run past the edge of a narrow window - and be cut off there,
+-- out of reach - shows up as a line wider than the room it had.
+------------------------------------------------------------------------------
+
+for i, k in ipairs({ "Col_MenuBarBg", "Col_Header", "Col_HeaderHovered",
+                     "Col_HeaderActive", "Col_ResizeGrip", "Col_ResizeGripHovered",
+                     "Col_ResizeGripActive", "StyleVar_FrameBorderSize",
+                     "PopupFlags_AnyPopup" }) do
+  ImGui[k] = 9000 + i
+end
+
+imgui.avail = 960
+imgui.vars, imgui.itemWidths = {}, {}
+imgui.edges, imgui.tipFor = {}, {}
+local function newRuler()
+  imgui.ruler = { x = 0, same = false, gap = 12, widest = 0, what = nil }
+end
+newRuler()
+
+-- The value of a style variable now: the last push of it still standing.
+local function styleVar(idx, which)
+  for i = #imgui.vars, 1, -1 do
+    if imgui.vars[i].var == idx then return imgui.vars[i][which or 1] end
+  end
+end
+local function textW(s)
+  return (ImGui.CalcTextSize(nil, (tostring(s):gsub("##.*$", ""))))
+end
+local function place(w, what)
+  local R = imgui.ruler
+  if R.inTip then return end
+  if R.same then R.x = R.x + R.gap + w else R.x = w end
+  R.same = false
+  if R.x > R.widest then R.widest, R.what = R.x, what end
+end
+
+local function before(name, fn)
+  local orig = ImGui[name]
+  ImGui[name] = function(...)
+    local skip = fn(...)
+    if skip then return table.unpack(skip) end
+    if orig then return orig(...) end
+  end
+end
+
+before("SetNextWindowSize", function()
+  newRuler()
+  imgui.vars, imgui.itemWidths = {}, {}
+end)
+before("PushStyleVar", function(_, var, a, b)
+  imgui.vars[#imgui.vars + 1] = { var = var, a, b }
+end)
+before("PopStyleVar", function(_, n)
+  for _ = 1, (n or 1) do imgui.vars[#imgui.vars] = nil end
+end)
+before("PushItemWidth", function(_, w) imgui.itemWidths[#imgui.itemWidths + 1] = w end)
+before("PopItemWidth", function() imgui.itemWidths[#imgui.itemWidths] = nil end)
+before("SameLine", function(_, _, spacing)
+  imgui.ruler.same = true
+  imgui.ruler.gap = (spacing and spacing > 0) and spacing
+                    or styleVar(ImGui.StyleVar_ItemSpacing) or 12
+end)
+before("Button", function(_, label, w)
+  imgui.lastItem = label
+  place((w and w > 0) and w or textW(label) + 16, label)
+end)
+before("InvisibleButton", function(_, id, w)
+  imgui.lastItem = id
+  place(w, id)
+end)
+before("Dummy", function(_, w) place(w or 0, "a gap") end)
+before("SeparatorText", function() place(0, "a heading") end)
+before("Text", function(_, s)
+  if imgui.ruler.inTip then
+    imgui.tooltips[#imgui.tooltips + 1] = s
+    imgui.tipFor[imgui.lastItem or "?"] = s
+    return {}
+  end
+  place(textW(s), s)
+end)
+
+-- Words that wrap take what is left of the line, and never less than their
+-- first word.
+function ImGui.TextWrapped(ctx, s)
+  if type(s) ~= "string" then error("TextWrapped got a " .. type(s)) end
+  local R = imgui.ruler
+  local start = R.same and (R.x + R.gap) or 0
+  local first = textW(s:match("^%S*") or "")
+  place(math.min(textW(s), math.max(imgui.avail - start, first)), s)
+  count("Text")
+  imgui.texts[#imgui.texts + 1] = s
+end
+
+-- A slider and a tick box: as wide as the control, the gap and the label, and
+-- the edge each was drawn with.
+local function frameEdge(label)
+  imgui.edges[label] = { size = styleVar(ImGui.StyleVar_FrameBorderSize) or 0,
+                         col = effective(ImGui.Col_Border) }
+end
+before("SliderInt", function(_, label)
+  imgui.lastItem = label
+  frameEdge(label)
+  place((imgui.itemWidths[#imgui.itemWidths] or 0)
+        + (styleVar(ImGui.StyleVar_ItemInnerSpacing) or 4) + textW(label), label)
+end)
+before("Checkbox", function(_, label)
+  imgui.lastItem = label
+  frameEdge(label)
+  local size = select(2, ImGui.CalcTextSize(nil, "x"))
+  place(size + 2 * (styleVar(ImGui.StyleVar_FramePadding, 2) or 0)
+        + (styleVar(ImGui.StyleVar_ItemInnerSpacing) or 4) + textW(label), label)
+end)
+
+-- bool BeginTooltip(ctx); EndTooltip(ctx);
+-- PushTextWrapPos(ctx, optional wrap_local_pos_x); PopTextWrapPos(ctx)
+function ImGui.BeginTooltip() imgui.ruler.inTip = true; return true end
+function ImGui.EndTooltip() imgui.ruler.inTip = false end
+function ImGui.PushTextWrapPos(_, x)
+  if imgui.ruler.inTip then imgui.tipWrap = x end
+end
+function ImGui.PopTextWrapPos() end
+
+-- What is left of the line, as ImGui answers: less after SameLine.
+function ImGui.GetContentRegionAvail()
+  local R = imgui.ruler
+  return imgui.avail - (R.same and (R.x + R.gap) or 0), 400
+end
+before("Begin", function(_, label) imgui.title = label end)
+
+-- SetNextWindowSizeConstraints(ctx, size_min_w, size_min_h, size_max_w, size_max_h)
+function ImGui.SetNextWindowSizeConstraints(_, a, b, c, d)
+  for _, v in ipairs({ a, b, c, d }) do
+    if type(v) ~= "number" then error("size constraint is a " .. type(v)) end
+  end
+  if a > c or b > d then error("minimum size larger than the maximum") end
+  imgui.minSize = { a, b }
+end
+
+-- bool IsAnyItemFocused(ctx); bool IsPopupOpen(ctx, str_id, optional popup_flags)
+function ImGui.IsAnyItemFocused() return imgui.focused == true end
+function ImGui.IsPopupOpen(_, id, flags)
+  if type(id) ~= "string" then error("IsPopupOpen's id is text") end
+  return imgui.popupOpen == true and flags == ImGui.PopupFlags_AnyPopup
+end
+
+-- The theme as it was pushed (the first push of each colour in a frame is the
+-- theme's), every line drawn with where it starts, and how tall the preview is.
+before("SetNextWindowSize", function() imgui.firstPush, imgui.lineAt = {}, {} end)
+before("PushStyleColor", function(_, idx, col)
+  imgui.firstPush[idx] = imgui.firstPush[idx] or col
+end)
+before("DrawList_AddLine", function(_, x1, y1, x2, y2, col)
+  imgui.lineAt[#imgui.lineAt + 1] = { x = x1, col = col }
+end)
+before("InvisibleButton", function(_, id, w, h) imgui.previewH = h end)
+
 local HIG = dofile(HERE .. "/hig_mock.lua")(ImGui)
 setmetatable(ImGui, { __index = function(_, k)
   error("the script called ImGui." .. tostring(k) .. ", which the mock does not have")
@@ -812,6 +973,168 @@ do
   frame()
   eq(tally("4th") + tally("5th"), 3, "a thirteenth offers its 4th and 5th (and 5th is a chord here too)")
   eq(tally("6th"), 2, "and its 6th, beside the 6th chord")
+end
+
+local VIEW_KEY = "StartingBlocks:view"
+local function VIEW_FOR(size) return "textSize=" .. size end
+
+------------------------------------------------------------------------------
+-- The final sweep of Apple's HIG Foundations (16 October 2026)
+------------------------------------------------------------------------------
+
+do
+  local GROUND = 0x23272EFF
+  local function chan(col)
+    return math.floor(col / 16777216) % 256, math.floor(col / 65536) % 256,
+           math.floor(col / 256) % 256
+  end
+  local function L(col)
+    local function c(v) v = v / 255; return v <= 0.03928 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4 end
+    local r, g, b = chan(col)
+    return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b)
+  end
+  local function fresh(view)
+    for k in pairs(extstate) do extstate[k] = nil end
+    if view then extstate[VIEW_KEY] = view end
+    deferred = nil
+    ok(pcall(dofile, SCRIPT), "the script loads for the final sweep")
+    frame()
+  end
+
+  -- Dark Mode: what sits in front is lighter, and every grey stays cool.
+  fresh()
+  local T = imgui.firstPush
+  ok(T[ImGui.Col_PopupBg] and L(T[ImGui.Col_PopupBg]) > L(T[ImGui.Col_WindowBg]),
+     "menus and tooltips are a step lighter than the window they sit in front of")
+  ok(T[ImGui.Col_Border] and L(T[ImGui.Col_Border]) > L(T[ImGui.Col_PopupBg]),
+     "with a rule round them lighter still")
+  ok(T[ImGui.Col_HeaderHovered] and HIG.contrast(T[ImGui.Col_Text], T[ImGui.Col_HeaderHovered]) >= 7,
+     "a menu item under the pointer keeps its words 7:1, not ImGui's blue")
+  ok(T[ImGui.Col_MenuBarBg] ~= nil, "the menu bar wears the scheme, not ImGui's neutral grey")
+  ok(HIG.contrast(T[ImGui.Col_TextDisabled], T[ImGui.Col_PopupBg]) >= 7,
+     "a menu item's shortcut keys are 7:1 on the menu")
+  ok(imgui.title and imgui.title:find("###", 1, true)
+     and imgui.title:find(E.generate(E.newState()).name or "?", 1, true),
+     "the window's title names the block on screen: " .. tostring(imgui.title))
+  local warm
+  for idx, col in pairs(T) do
+    local r, g, b = chan(col)
+    if math.max(r, g, b) - math.min(r, g, b) < 40 and not (r < g and g < b) then
+      warm = warm or ("%08X"):format(col)
+    end
+  end
+  ok(warm == nil, "every grey in the theme is blue-shifted, R < G < B: " .. tostring(warm))
+  ok(HIG.contrast(T[ImGui.Col_ScrollbarGrab], T[ImGui.Col_ScrollbarBg]) >= 3,
+     "the scrollbar's grab is 3:1 on its track")
+  ok(HIG.contrast(T[ImGui.Col_ResizeGrip], GROUND) >= 3,
+     "the corner that resizes the window is 3:1 on the ground")
+
+  -- A slider's track and a box to tick have an edge 3:1 on the ground.
+  local seen, bad = {}, nil
+  local function edges()
+    for label, e in pairs(imgui.edges) do
+      seen[label] = true
+      if not (e.size >= 1 and e.col and HIG.contrast(e.col, GROUND) >= 3) then bad = bad or label end
+    end
+  end
+  for _, cat in ipairs(E.CATEGORIES) do clickLabel(cat); frame(); edges() end
+  ok(seen["Loop"] and seen["Gate %##gate"], "sliders and the box were reached")
+  ok(bad == nil, "every slider and tick box has an edge 3:1 on the ground: " .. tostring(bad))
+
+  -- Every slider and the box say what they do; tooltips wrap at a reading width.
+  local untold
+  for label in pairs(seen) do
+    if not imgui.tipFor[label] then untold = untold or label end
+  end
+  for _, cat in ipairs(E.CATEGORIES) do
+    clickLabel(cat); frame()
+    for label in pairs(imgui.edges) do
+      if not imgui.tipFor[label] then untold = untold or label end
+    end
+  end
+  ok(untold == nil, "every slider and tick box has a tooltip: " .. tostring(untold))
+  ok(imgui.tipWrap and imgui.tipWrap >= 300 and imgui.tipWrap <= 500,
+     "a tooltip wraps at a reading width, about 60 characters: " .. tostring(imgui.tipWrap))
+
+  -- The window has a minimum size, and at it nothing runs off the edge, at
+  -- 100% and at 200%: every row wraps.
+  local mins = {}
+  for _, size in ipairs({ 1, 4 }) do
+    fresh(VIEW_FOR(size))
+    ok(imgui.minSize ~= nil, "the window has a minimum size")
+    if not imgui.minSize then break end
+    mins[size] = imgui.minSize[1]
+    imgui.avail = imgui.minSize[1] - 2 * 8 - 14    -- the window's padding and scrollbar
+    local worst
+    for _, cat in ipairs(E.CATEGORIES) do
+      clickLabel(cat); frame()
+      local n = #imgui.buttons
+      for click = 0, n do
+        clickLabel(cat)
+        if click > 0 then frame(click) end
+        frame()
+        if imgui.ruler.widest > imgui.avail + 0.5 and not worst then
+          worst = ("%s: %s reaches %d of %d"):format(cat, tostring(imgui.ruler.what),
+                                                     math.floor(imgui.ruler.widest), imgui.avail)
+        end
+      end
+    end
+    ok(worst == nil, ("at %d%% and the narrowest window, nothing runs off the edge: %s")
+                     :format(({ 100, 125, 150, 200 })[size], tostring(worst)))
+    imgui.avail = 960
+  end
+  eq(mins[4], mins[1] and mins[1] * 2, "the minimum grows with the text")
+  fresh()
+
+  -- Escape lets go first: a control with the keyboard's ring, or a menu, takes
+  -- it; only an Escape with nothing in hand closes the window.
+  local function escFrame(esc, focused, popup)
+    imgui.focused, imgui.popupOpen = focused, popup
+    HIG.keys = esc and { [ImGui.Key_Escape] = true } or {}
+    local loopFn = deferred
+    deferred = nil
+    local good, e = pcall(loopFn)
+    HIG.keys = {}
+    local kept = deferred ~= nil
+    deferred = loopFn
+    if not good then error(e) end
+    return kept
+  end
+  ok(escFrame(false, true, false), "a frame with the ring on a control")
+  ok(escFrame(true, false, false), "Escape then takes the ring away and the window stays")
+  ok(not escFrame(true, false, false), "a second Escape, with nothing in hand, closes it")
+  ok(escFrame(false, false, true), "a frame with the View menu open")
+  ok(escFrame(true, false, false), "Escape then closes the menu and the window stays")
+  ok(not escFrame(true, false, false), "Escape with nothing open closes the window")
+  imgui.focused, imgui.popupOpen = false, false
+end
+
+------------------------------------------------------------------------------
+-- The roll, after the final sweep: its bar lines carry meaning, so they are
+-- 3:1 on the roll; and it grows with the text like everything else.
+------------------------------------------------------------------------------
+
+do
+  for k in pairs(extstate) do extstate[k] = nil end
+  deferred = nil
+  dofile(SCRIPT)
+  frame()
+  local roll
+  for col in pairs(imgui.drawColours) do
+    if not roll or HIG.contrast(col, 0xFFFFFFFF) > HIG.contrast(roll, 0xFFFFFFFF) then roll = col end
+  end
+  local bar
+  for _, l in ipairs(imgui.lineAt) do if l.x == 0 then bar = l.col end end
+  ok(bar and HIG.contrast(bar, roll) >= 3,
+     ("the roll's bar lines are 3:1 on the roll: %.2f"):format(bar and HIG.contrast(bar, roll) or 0))
+  local h100 = imgui.previewH
+  for k in pairs(extstate) do extstate[k] = nil end
+  extstate["StartingBlocks:view"] = "textSize=4"
+  deferred = nil
+  dofile(SCRIPT)
+  frame()
+  eq(imgui.previewH, h100 and h100 * 2, "the roll is twice as tall at 200%")
+  for k in pairs(extstate) do extstate[k] = nil end
 end
 
 ------------------------------------------------------------------------------

@@ -143,6 +143,17 @@ function ImGui.DrawList_AddLine(_, _, _, _, _, col)
   elseif col ~= rollCols.bar then rollCols.beat = rollCols.beat or col end
 end
 function ImGui.GetContentRegionAvail() return 960, 400 end
+-- What the final HIG sweep calls: the window's minimum size, the Escape
+-- check, wrapped words and tooltips (none is shown: nothing is hovered).
+ImGui.StyleVar_FrameBorderSize, ImGui.PopupFlags_AnyPopup = 120, 121
+function ImGui.SetNextWindowSizeConstraints() end
+function ImGui.IsAnyItemFocused() return false end
+function ImGui.IsPopupOpen() return false end
+function ImGui.TextWrapped(ctx, t) ImGui.Text(ctx, t) end
+function ImGui.BeginTooltip() return false end
+function ImGui.EndTooltip() end
+function ImGui.PushTextWrapPos() end
+function ImGui.PopTextWrapPos() end
 function ImGui.IsMouseClicked() return false end
 function ImGui.IsWindowHovered() return true end
 

@@ -207,6 +207,7 @@ until *Dismiss*. Rules for new code: every fixed size goes through `px()`,
 every button through `pick()` (never narrower than its label), every text
 colour 7:1. `tests/hig_mock.lua` - the same file in every ReaImGui repo of
 the family - adds the calls to the mock and checks each of these per widget.
+**The final sweep** (2.5, 0009's dated section): menus and tooltips `#2A2F37` with a `#3A404A` rule; slider tracks and tick boxes go through `slider()` and `checkbox()`, which add a `#8A919C` edge (`framed()`), a tooltip and their place in the row; **no bare `SameLine` between controls** - a row is `flowStart` then `flowNext`/`flowNextW`/`flowText` for each thing in it, so it wraps; words go through `dim()`/`flowText` (wrapped); tooltips through `tip()` (wrapped at about 60 characters); Escape lets go of focus or a menu before it closes the window; a minimum window size grown with the text; the title names the block. `test_ui`'s ruler fails any line wider than the narrowest window at 100% or 200%, in every state of every panel.
 The text size is a preference about the window, not the block: it is `ui.textSize`, saved under its own ExtState key `view`, because the engine owns `st` and clamps every field in it. `docs/COLOUR.md` gained `#B0B6C0`, `#FF9E96` and the focus ring; the preview tool (`tools/preview.lua`) knows the new calls.
 
 The step numbers are **neutral, not an accent**, and the test holds that in

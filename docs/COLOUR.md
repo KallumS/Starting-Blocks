@@ -30,22 +30,22 @@ Eighteen greys, darkest to lightest.
 | | R | G | B | used for |
 | --- | ---: | ---: | ---: | --- |
 | `#111419` | 17 | 20 | 25 | piano-roll ground |
-| `#14171C` | 20 | 23 | 28 | borders, and the text on every button |
+| `#14171C` | 20 | 23 | 28 | the text on every button |
 | `#1A1D23` | 26 | 29 | 35 | sunken frames, scrollbar track |
-| `#1B1F25` | 27 | 31 | 37 | popups, title bar |
+| `#1B1F25` | 27 | 31 | 37 | title bar, menu bar |
 | `#1E2228` | 30 | 34 | 40 | roll beat lines |
 | `#22262D` | 34 | 38 | 45 | frame hover |
 | `#23272E` | 35 | 39 | 46 | the window chrome, active title |
-| `#2A2F37` | 42 | 47 | 55 | frame active |
-| `#3A404A` | 58 | 64 | 74 | separators, roll bar lines |
-| `#585F6B` | 88 | 95 | 107 | scrollbar grab |
-| `#6D7581` | 109 | 117 | 129 | scrollbar hover |
-| `#8A919C` | 138 | 145 | 156 | disabled text (4.7:1 - not for words that must be read; see below) |
-| `#8F96A2` | 143 | 150 | 162 | button held |
-| `#A9AFBA` | 169 | 175 | 186 | buttons, slider grabs |
+| `#2A2F37` | 42 | 47 | 55 | frame active; menus and tooltips (raised, so lighter than the window) |
+| `#3A404A` | 58 | 64 | 74 | separators, the rule round a menu or tooltip and the window, a menu item under the pointer |
+| `#585F6B` | 88 | 95 | 107 | (no longer used: 2.6:1 on the scrollbar track) |
+| `#6D7581` | 109 | 117 | 129 | scrollbar grab (3.6:1), roll bar lines (4.0:1), resize corner (3.2:1) |
+| `#8A919C` | 138 | 145 | 156 | the edge of a slider track or tick box (4.7:1); not for words |
+| `#8F96A2` | 143 | 150 | 162 | button held, scrollbar hover |
+| `#A9AFBA` | 169 | 175 | 186 | buttons, slider grabs, resize corner under the pointer |
 | `#B0B6C0` | 176 | 182 | 192 | secondary text: hints, labels, the status line (7.4:1) |
-| `#BFC5CE` | 191 | 197 | 206 | the step numbers |
-| `#C0C6CF` | 192 | 198 | 207 | button hover |
+| `#BFC5CE` | 191 | 197 | 206 | the step numbers; a menu's shortcut keys and disabled items (dimmed further by ImGui) |
+| `#C0C6CF` | 192 | 198 | 207 | button hover, resize corner held |
 | `#DDE1E7` | 221 | 225 | 231 | body text |
 | `#F2F4F7` | 242 | 244 | 247 | the audition playhead, the keyboard's focus ring |
 
@@ -68,7 +68,7 @@ you copy either.
 | Controls | `#A9AFBA` | `#C0C6CF` | `#8F96A2` | set by hand in `THEME` |
 | Accent | `#FFF200` | `#FFF42E` | `#D1C600` | computed by `shade()`, ±18% toward white and black |
 
-So the source holds twenty values, while the running window shows twenty-two -
+So the running window shows two more colours than the source holds -
 the accent's two states are derived rather than stored.
 
 ## Two rules worth carrying
@@ -129,7 +129,7 @@ rather than only the same scheme:
 
 | `Col_` | |
 | --- | --- |
-| `Col_Border` | `#14171C` |
+| `Col_Border` | `#3A404A` (pushed as `#8A919C` round slider tracks and tick boxes) |
 | `Col_Button` | `#A9AFBA` |
 | `Col_ButtonActive` | `#8F96A2` |
 | `Col_ButtonHovered` | `#C0C6CF` |
@@ -138,16 +138,21 @@ rather than only the same scheme:
 | `Col_FrameBgActive` | `#2A2F37` |
 | `Col_FrameBgHovered` | `#22262D` |
 | `Col_NavHighlight` | `#F2F4F7` |
-| `Col_PopupBg` | `#1B1F25` |
+| `Col_Header`, `Col_HeaderHovered`, `Col_HeaderActive` | `#3A404A` |
+| `Col_MenuBarBg` | `#1B1F25` |
+| `Col_PopupBg` | `#2A2F37` |
+| `Col_ResizeGrip` | `#6D7581` |
+| `Col_ResizeGripActive` | `#C0C6CF` |
+| `Col_ResizeGripHovered` | `#A9AFBA` |
 | `Col_ScrollbarBg` | `#1A1D23` |
-| `Col_ScrollbarGrab` | `#585F6B` |
+| `Col_ScrollbarGrab` | `#6D7581` |
 | `Col_ScrollbarGrabActive` | `#A9AFBA` |
-| `Col_ScrollbarGrabHovered` | `#6D7581` |
+| `Col_ScrollbarGrabHovered` | `#8F96A2` |
 | `Col_Separator` | `#3A404A` |
 | `Col_SliderGrab` | `#A9AFBA` |
 | `Col_SliderGrabActive` | `#FFF200` |
 | `Col_Text` | `#DDE1E7` |
-| `Col_TextDisabled` | `#8A919C` |
+| `Col_TextDisabled` | `#BFC5CE` |
 | `Col_TitleBg` | `#1B1F25` |
 | `Col_TitleBgActive` | `#23272E` |
 | `Col_TitleBgCollapsed` | `#1B1F25` |
@@ -163,3 +168,15 @@ dim `#8A919C` (4.7:1) and the house red (3.4:1) are kept for disabled text
 and for marks, never for words that must be read. The keyboard's focus ring is
 `#F2F4F7`, not the accent: yellow means *on*, and a focused control need not
 be.
+
+## Things to find, after the final sweep (October 2026)
+
+Apple's Accessibility page asks that a control or a mark that carries meaning
+stands 3:1 off what it sits on, and its Dark Mode page that a surface in front
+of another is lighter than it. So menus and tooltips are `#2A2F37` over the
+`#23272E` window, with a `#3A404A` rule; slider tracks and tick boxes, sunk to
+`#1A1D23` (1.1:1 on the ground), carry a `#8A919C` edge (4.7:1); the scrollbar's
+grab is `#6D7581` (3.6:1 on its track) and so are the roll's bar lines (4.0:1 on
+`#111419`; `#3A404A` was 1.8:1). The beat lines between them stay `#1E2228`, a
+faint guide. ImGui's own blue no longer appears: a menu item under the pointer
+is `#3A404A` (its words 8:1) and the resize corner is grey.
