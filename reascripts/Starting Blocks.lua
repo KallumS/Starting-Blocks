@@ -29,7 +29,7 @@ local imgui_path = reaper.ImGui_GetBuiltinPath and
 if not imgui_path then
   reaper.MB("Starting Blocks needs the ReaImGui extension.\n\n" ..
             "Install it with ReaPack, from the ReaTeam Extensions repository.",
-            "Missing dependency", 0)
+            "Missing Extension", 0)
   return
 end
 local ImGui = dofile(imgui_path)("0.9")
@@ -323,7 +323,7 @@ local function modRow()
   local m = chooser("ratemod", E.RATE_MODS, st.rateMod, 0, 72,
                     function(x) return x.name end,
                     function(x, i) return ({
-                      "Notes fall where the grid says",
+                      "Notes fall where the grid says.",
                       "Three in the space of two",
                       "Half as long again" })[i] end)
   if m then st.rateMod = m; touched() end
@@ -414,7 +414,7 @@ local function degreeButtons(idPrefix)
       st.degree = d
       touched()
     end
-    tip(E.degreeTitle(st, d) .. "  -  " .. E.noteName(st, d))
+    tip(E.degreeTitle(st, d) .. " — " .. E.noteName(st, d))
     ImGui.PopID(ctx)
   end
   ImGui.SameLine(ctx, 0, 16)
@@ -454,7 +454,7 @@ panels.Chord = function()
         if n > 1 and (n - 1) % 8 ~= 0 then ImGui.SameLine(ctx) end
         ImGui.PushID(ctx, i)
         if pick(ch.sym, st.chord == i, 108) then st.chord = i; touched() end
-        tip(ch.name .. "   -   semitones " .. table.concat(ch.iv, " "))
+        tip(ch.name .. " — semitones " .. table.concat(ch.iv, " "))
         ImGui.PopID(ctx)
       end
     end
@@ -481,7 +481,7 @@ panels.Chord = function()
 end
 
 panels.Arpeggio = function()
-  dim(("Chord:  %s   -   set it in the Chord tab"):format(E.chordLabel(st)))
+  dim(("Chord: %s — set it in the Chord panel"):format(E.chordLabel(st)))
 
   dim("Direction")
   local d = chooser("dir", E.DIRECTIONS, st.pattern, 0, 84)
@@ -522,7 +522,7 @@ panels.Melody = function()
   -- no shape to put it in. The shape row makes way for the one thing that does
   -- decide the note: which degree it is.
   if held then
-    dim("Scale degree")
+    dim("Scale Degree")
     degreeButtons("meldeg")
   else
     ImGui.SameLine(ctx, 0, 16)
@@ -562,7 +562,7 @@ local function drawKey()
 end
 
 local function drawDegree()
-  heading(2, "Scale degree")
+  heading(2, "Scale Degree")
   degreeButtons("deg")
   stepGap()
 end
@@ -576,26 +576,26 @@ local function drawActions()
             Place.previewRunning() and ui.playhead or nil)
 
   if block then
-    local note = ("%d notes  /  %.2f beats"):format(#block.notes, block.beats)
-    if block.truncated then note = note .. "   (buffer full - shorten the block)" end
+    local note = ("%d notes, %.2f beats"):format(#block.notes, block.beats)
+    if block.truncated then note = note .. " — too many notes, so the end is cut off. Shorten the block." end
     dim(note)
   end
 
   ImGui.Dummy(ctx, 0, 2)
 
-  if pick("Insert at cursor", false, 150) then
+  if pick("Insert at Cursor", false, 150) then
     local r = Place.insert(block)
-    if r == Place.OK then say("Inserted at the edit cursor")
-    elseif r == Place.NOTHING then say("Nothing to insert", true)
-    else say("No track selected", true) end
+    if r == Place.OK then say("Inserted at the edit cursor.")
+    elseif r == Place.NOTHING then say("There are no notes to insert.", true)
+    else say("No track is selected. Select a track, then insert again.", true) end
   end
 
   ImGui.SameLine(ctx)
-  if pick("Export .mid", false, 120) then
+  if pick("Export MIDI File", false, 140) then
     local r, path = Place.export(block)
-    if r == Place.OK then say("Wrote " .. tostring(path))
-    elseif r == Place.NOTHING then say("Nothing to write", true)
-    else say("Could not write the file", true) end
+    if r == Place.OK then say("Saved " .. tostring(path))
+    elseif r == Place.NOTHING then say("There are no notes to save.", true)
+    else say("The MIDI file couldn’t be saved. Check that REAPER’s resource folder can be written to.", true) end
   end
 
   ImGui.SameLine(ctx, 0, 16)
@@ -628,7 +628,7 @@ local function frame()
   drawKey()
   drawDegree()
 
-  heading(3, "Building block")
+  heading(3, "Building Block")
   for i, name in ipairs(E.CATEGORIES) do
     if i > 1 then ImGui.SameLine(ctx) end
     ImGui.PushID(ctx, "cat" .. i)
