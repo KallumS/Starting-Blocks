@@ -363,14 +363,16 @@ class Editor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     explicit Editor(Processor &p) : juce::AudioProcessorEditor(p), m_proc(p)
     {
+        // read the remembered size first: setting the limits resizes the
+        // editor, and resized() records whatever size that is
+        int w = p.editorWidth > 0 ? p.editorWidth : 860;
+        int h = p.editorHeight > 0 ? p.editorHeight : 700;
         setWantsKeyboardFocus(true);
         setResizable(true, true);
         Session *s = p.session();
         int minW = s && s->minWidth() > 0 ? (int)s->minWidth() : 320;
         int minH = s && s->minHeight() > 0 ? (int)s->minHeight() : 240;
         setResizeLimits(juce::jmax(320, minW), juce::jmax(240, minH), 4096, 4096);
-        int w = p.editorWidth > 0 ? p.editorWidth : 860;
-        int h = p.editorHeight > 0 ? p.editorHeight : 700;
         setSize(w, h);
         startTimerHz(30);
     }
