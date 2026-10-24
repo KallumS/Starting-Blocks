@@ -9,7 +9,7 @@ else RUN="python3 tools/run_lua.py"
 fi
 
 fail=0
-for suite in tests/test_engine.lua tests/test_midi.lua tests/test_place.lua tests/test_ui.lua; do
+for suite in tests/test_engine.lua tests/test_midi.lua tests/test_place.lua tests/test_ui.lua tests/test_plugin.lua; do
   [ -f "$suite" ] || continue
   printf '%-26s ' "$(basename "$suite")"
   if ! $RUN "$suite"; then fail=1; fi

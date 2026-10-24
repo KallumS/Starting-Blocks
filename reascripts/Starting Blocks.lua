@@ -746,12 +746,32 @@ local function drawActions()
   ImGui.Dummy(ctx, 0, px(2))
 
   flowStart()
-  flowNext("Insert at Cursor", 150)
-  if pick("Insert at Cursor", false, 150) then
-    local r = Place.insert(block)
-    if r == Place.OK then say("Inserted at the edit cursor.")
-    elseif r == Place.NOTHING then say("There are no notes to insert.", true)
-    else say("No track is selected. Select a track, then insert again.", true) end
+  if Place.dragOut then
+    -- In the plugin there is no edit cursor to insert at: the block is
+    -- dragged out of the window onto a track instead (plugin/lua/sb_place.lua).
+    flowNext("Drag into Song", 150)
+    if pick("Drag into Song", false, 150) then
+      say("Drag this button onto a track to put the block there as a MIDI clip.")
+    end
+    if ImGui.IsItemActive(ctx) and ImGui.IsMouseDragging(ctx, 0) then
+      if not ui.dragging then
+        ui.dragging = true
+        local r = Place.dragOut(block)
+        if r == Place.NOTHING then say("There are no notes to drag.", true)
+        elseif r ~= Place.OK then say("The block couldn’t be written out to drag. Try Export MIDI File.", true) end
+      end
+    else
+      ui.dragging = false
+    end
+    tip("Drag it onto a track in your song: the block goes there as a MIDI clip.")
+  else
+    flowNext("Insert at Cursor", 150)
+    if pick("Insert at Cursor", false, 150) then
+      local r = Place.insert(block)
+      if r == Place.OK then say("Inserted at the edit cursor.")
+      elseif r == Place.NOTHING then say("There are no notes to insert.", true)
+      else say("No track is selected. Select a track, then insert again.", true) end
+    end
   end
 
   flowNext("Export MIDI File", 140)
@@ -759,6 +779,7 @@ local function drawActions()
     local r, path = Place.export(block)
     if r == Place.OK then say("Saved " .. tostring(path))
     elseif r == Place.NOTHING then say("There are no notes to save.", true)
+    elseif Place.HOST == "plugin" then say("The MIDI file couldn’t be saved. Check that your Music folder can be written to.", true)
     else say("The MIDI file couldn’t be saved. Check that REAPER’s resource folder can be written to.", true) end
   end
 
@@ -771,11 +792,21 @@ local function drawActions()
       Place.previewStart(block, Place.tempo())
     end
   end
-  tip("Plays through the virtual keyboard, so a record-armed monitored track " ..
-      "will sound it. Timing is a preview, not a performance.")
+  if Place.HOST == "plugin" then
+    tip("Plays through the plugin’s MIDI output, to the instrument after it, at the song’s tempo.")
+  else
+    tip("Plays through the virtual keyboard, so a record-armed monitored track " ..
+        "will sound it. Timing is a preview, not a performance.")
+  end
 
   ui.loop = checkbox("Loop", ui.loop,
                      "When this is on, Audition starts again from the top until you click Stop.")
+
+  if Place.setPlayingWithSong then
+    Place.setPlayingWithSong(checkbox("Play with the Song", Place.playingWithSong(),
+      "When this is on, the block plays over and over while the song plays, " ..
+      "lined up with its bars, through the plugin’s MIDI output."))
+  end
 
 end
 
@@ -875,7 +906,12 @@ local function loop()
   pushSize()
   -- The title names the block on screen; after ### is the window's own id,
   -- so a new name does not make it a new window.
-  if ui.dirty then rebuild() end
+  if ui.dirty then
+    rebuild()
+    -- In the plugin, the block on screen is the one it plays, and the
+    -- settings are saved with the project, so both go over at once.
+    if Place.follow then Place.follow(ui.block); saveState() end
+  end
   local name = ui.block and ui.block.name or ""
   local visible, open = ImGui.Begin(ctx, (name ~= "" and (TITLE .. " — " .. name) or TITLE)
                                     .. "###" .. TITLE, true, ImGui.WindowFlags_MenuBar)
@@ -889,7 +925,8 @@ local function loop()
   popSize()
   popTheme()   -- outside the visible test: a push always needs its pop
   local escape = ImGui.IsKeyPressed(ctx, ImGui.Key_Escape)
-  local close = escape and not escBusy
+  -- (A plugin's window belongs to the host, which closes it.)
+  local close = escape and not escBusy and Place.HOST ~= "plugin"
   escBusy = busy
   if open and not close then
     reaper.defer(loop)
