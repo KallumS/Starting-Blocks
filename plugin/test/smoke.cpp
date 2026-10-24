@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 
     // the window, painted
     if (auto *s = p.session()) {
-        const int w = 860, h = 700;
+        const int w = 860, h = argc > 2 ? juce::String(argv[2]).getIntValue() : 700;
         s->frame((float)w, (float)h, 2);
         s->frame((float)w, (float)h, 2);
         juce::Image img(juce::Image::ARGB, w * 2, h * 2, true);
