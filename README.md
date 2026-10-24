@@ -131,6 +131,31 @@ MIDI editor once it is in the project, not for a slider on every panel here.
   nearest wake-up, not on the sample. Anything that needs to be exact wants the
   block in the project, where REAPER plays it properly.
 
+## As a VST3 or CLAP plugin (Mac)
+
+Starting Blocks also comes as a VST3 and a CLAP plugin for any DAW on a Mac (Apple
+Silicon and Intel). The window is the same one, run from the same script, so
+it picks blocks the same way; what changes is how a block gets out, because a
+plugin cannot put an item on a track:
+
+- **Play with the Song** plays the block over and over while the song plays,
+  lined up with its bars, out of the plugin's MIDI output. Put the plugin in
+  front of an instrument (in REAPER, above it in the FX chain; in Bitwig, as a
+  note effect).
+- **Drag into Song**: drag the button onto a track and the block lands there
+  as a MIDI clip.
+- **Audition** plays it once, or looped, at the song's tempo, timed to the
+  sample.
+- **Export MIDI File** saves it in `Music/Starting Blocks` and shows it in Finder.
+
+Each copy of the plugin remembers its own block with the project.
+
+To install: download `Starting-Blocks-macOS.zip` from the repository's **Releases**
+(or, for the latest build, **Actions → Plugins → the newest run →
+Artifacts**), unzip it and follow `INSTALL.txt` (two folders to copy into,
+and one Terminal line, because the plugins are not signed with an Apple
+developer certificate).
+
 ## Bigger text, and the keyboard
 
 The window follows Apple's design guidelines for Mac apps
