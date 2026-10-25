@@ -52,13 +52,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir cv && cd cv
-          gh release download 0.3.2 -R free-audio/clap-validator -p '*mac*'
+          gh release download 0.4.1 -R free-audio/clap-validator -p '*mac*'
           for f in *; do case "$f" in *.zip) unzip -q "$f";; *.tar.gz) tar xzf "$f";; esac; done
           CV=$(find . -name clap-validator -type f | head -1); chmod +x "$CV"; cd ..
           CV="cv/${CV#./}"
-          # state-invalid (loading an empty state must fail) is skipped: JUCE's
-          # setStateInformation cannot report a failure, so every JUCE plugin fails it.
-          "$CV" validate --only-failed --test-filter state-invalid --invert-filter "plugin/out/$NAME.clap"
+          # The state-invalid tests (loading an empty or random state must fail)
+          # are skipped: JUCE's setStateInformation cannot report a failure, so
+          # every JUCE plugin fails them. (0.4.1, not 0.3.2: 0.3.2's own host
+          # crashed when a plugin asked it for a main-thread callback.)
+          "$CV" validate --only-failed --exclude '^state-invalid' "plugin/out/$NAME.clap"
       - name: Open the window and take a picture of it
         run: |
           APP=$(find plugin/build -name "$NAME.app" -path '*Standalone*' | head -1)
