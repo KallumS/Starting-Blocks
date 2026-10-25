@@ -52,9 +52,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir cv && cd cv
-          gh release download 0.4.1 -R free-audio/clap-validator -p '*mac*'
-          for f in *; do case "$f" in *.zip) unzip -q "$f";; *.tar.gz) tar xzf "$f";; esac; done
-          CV=$(find . -name clap-validator -type f | head -1); chmod +x "$CV"; cd ..
+          gh release download 0.4.1 -R free-audio/clap-validator -p '*universal*'
+          # the release nests its archives; unpack until the program turns up
+          for pass in 1 2 3; do
+            for f in $(find . -name '*.zip' -o -name '*.tar.gz' -o -name '*.tgz'); do
+              case "$f" in *.zip) unzip -oq "$f" -d "${f%.zip}.d";; *) mkdir -p "$f.d"; tar xzf "$f" -C "$f.d";; esac
+              rm -f "$f"
+            done
+          done
+          CV=$(find . -name clap-validator -type f | head -1)
+          [ -n "$CV" ] || { echo "clap-validator not found in:"; find . ; exit 1; }
+          chmod +x "$CV"; cd ..
           CV="cv/${CV#./}"
           # The state-invalid tests (loading an empty or random state must fail)
           # are skipped: JUCE's setStateInformation cannot report a failure, so
