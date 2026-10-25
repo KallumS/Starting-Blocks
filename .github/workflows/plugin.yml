@@ -68,7 +68,9 @@ jobs:
           # are skipped: JUCE's setStateInformation cannot report a failure, so
           # every JUCE plugin fails them. (0.4.1, not 0.3.2: 0.3.2's own host
           # crashed when a plugin asked it for a main-thread callback.)
-          "$CV" validate --only-failed --exclude '^state-invalid' "plugin/out/$NAME.clap"
+          # param-conversions is skipped too: this plugin has no parameters, and
+          # 0.4.1 divides by their number ("a bug in the validator", it says).
+          "$CV" validate --only-failed --exclude '^state-invalid' --exclude '^param-conversions' "plugin/out/$NAME.clap"
       - name: Open the window and take a picture of it
         run: |
           APP=$(find plugin/build -name "$NAME.app" -path '*Standalone*' | head -1)
