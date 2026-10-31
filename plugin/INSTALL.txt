@@ -1,0 +1,25 @@
+Starting Blocks — VST3 and CLAP plugins for macOS (Apple Silicon and Intel)
+
+1. Quit your DAW.
+2. Copy the plugins into your plugin folders (in Finder: Go > Go to Folder…):
+     Starting Blocks.vst3  ->  ~/Library/Audio/Plug-Ins/VST3/
+     Starting Blocks.clap  ->  ~/Library/Audio/Plug-Ins/CLAP/
+   (Make the CLAP folder if it is not there.)
+3. The plugins are not signed with an Apple developer certificate, so macOS
+   blocks them until you clear the download flag. Open Terminal and paste:
+     xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"Starting Blocks.vst3" ~/Library/Audio/Plug-Ins/CLAP/"Starting Blocks.clap"
+4. Open your DAW and let it scan for new plugins.
+
+Using it: Starting Blocks makes MIDI, not sound. Put it on an instrument's
+track, in front of the instrument (in REAPER: above it in the FX chain; in
+Bitwig: as a note effect). Then:
+
+  Audition            plays the block once (or looped) at the song's tempo.
+  Play with the Song  plays the block over and over while the song plays,
+                      lined up with its bars.
+  Drag into Song      drag this button onto a track: the block goes there as
+                      a MIDI clip.
+  Export MIDI File    saves the block to Music/Starting Blocks and shows it.
+
+The window is the same one as the REAPER script's; each copy of the plugin
+remembers its own block with the project.

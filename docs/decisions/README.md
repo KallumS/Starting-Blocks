@@ -22,3 +22,4 @@ preference with no consequence, and anything already explained where it lives -
 | [0007](0007-a-chord-has-as-many-inversions-as-notes.md) | A chord has as many inversions as it has notes, less one |
 | [0008](0008-the-window-follows-apples-writing-guidelines.md) | The window's text follows Apple's writing guidelines |
 | [0009](0009-apples-hig-foundations.md) | Apple's HIG Foundations are the standard for the window |
+| [0010](0010-the-plugin-runs-the-window-script.md) | The plugin runs the window script on a stand-in for ReaImGui |
