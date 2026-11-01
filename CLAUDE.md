@@ -1,5 +1,11 @@
 # Starting Blocks
 
+**Branches.** `main` (this branch) is the REAPER version only. The VST3 and
+CLAP plugins live on `plugin`, which is `main` with the plugin added on top:
+work on the REAPER version goes here and is merged into `plugin`
+(`git merge main`); `plugin` is never merged into `main`. So `plugin/`,
+its workflow and the notes below about building the plugin are on `plugin`.
+
 A ReaScript that hands you the smallest useful pieces of music and puts them in
 the project. ReaImGui for the window.
 

@@ -133,6 +133,9 @@ MIDI editor once it is in the project, not for a slider on every panel here.
 
 ## As a VST3 or CLAP plugin (Mac)
 
+The plugins are made from this same window script on the `plugin` branch of this
+repository, which also builds them on GitHub.
+
 Starting Blocks also comes as a VST3 and a CLAP plugin for any DAW on a Mac (Apple
 Silicon and Intel). The window is the same one, run from the same script, so
 it picks blocks the same way; what changes is how a block gets out, because a
