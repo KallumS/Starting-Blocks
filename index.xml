@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ReaPack index for Starting Blocks.
+
+  Add this repository in REAPER with Extensions > ReaPack > Import repositories,
+  pasting the raw URL of this file on the default branch:
+
+    https://raw.githubusercontent.com/KallumS/Starting-Blocks/main/index.xml
+
+  That URL only resolves once this file is on the default branch.
+
+  Each <source> is pinned to a commit rather than a branch, so an installed
+  version is the exact set of files that was tested and cannot change
+  underneath anyone. Publishing a new version means adding a <version> block
+  with a fresh commit hash - never editing an existing one.
+
+  One package: the four files install into one folder, because the main script
+  loads the other three from beside itself. Needs ReaImGui (also from
+  ReaPack).
+
+  ReaPack keys an installed package by its NAME, so renaming a file is not an
+  upgrade. Rename sparingly.
+-->
+<index version="1" name="Starting Blocks">
+  <category name="MIDI">
+
+    <reapack name="Starting Blocks.lua" type="script" desc="Starting Blocks">
+      <version name="2.5" author="kallums" time="2026-11-01T14:45:22Z">
+        <changelog><![CDATA[First release through ReaPack. A catalogue of the smallest useful pieces of music - chords, arpeggios, runs, steps, leaps and held notes - picked by key, scale and scale degree and dropped into the project. Needs ReaImGui.]]></changelog>
+        <source main="main" file="Starting Blocks.lua">https://raw.githubusercontent.com/KallumS/Starting-Blocks/6466da693eed6f46d422ff568bfce0eb7bc201f5/reascripts/Starting%20Blocks.lua</source>
+        <source file="sb_engine.lua">https://raw.githubusercontent.com/KallumS/Starting-Blocks/6466da693eed6f46d422ff568bfce0eb7bc201f5/reascripts/sb_engine.lua</source>
+        <source file="sb_midi.lua">https://raw.githubusercontent.com/KallumS/Starting-Blocks/6466da693eed6f46d422ff568bfce0eb7bc201f5/reascripts/sb_midi.lua</source>
+        <source file="sb_place.lua">https://raw.githubusercontent.com/KallumS/Starting-Blocks/6466da693eed6f46d422ff568bfce0eb7bc201f5/reascripts/sb_place.lua</source>
+      </version>
+      <metadata>
+        <description><![CDATA[{\pard Starting Blocks\par
+A catalogue of the smallest useful pieces of music - chords, arpeggios, runs, melodic steps, leaps and held notes - that you pick by key, scale and scale degree and drop into a REAPER project.\par
+Needs ReaImGui: in ReaPack, Browse packages, search for ReaImGui and install it.\par
+}]]></description>
+        <link rel="website">https://github.com/KallumS/Starting-Blocks</link>
+      </metadata>
+    </reapack>
+
+  </category>
+</index>
