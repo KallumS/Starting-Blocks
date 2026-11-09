@@ -23,6 +23,14 @@ notes. F# major spells its seventh E#, here as there.
 
 ## Installing
 
+**With ReaPack** (easiest, and it keeps it up to date): Extensions ->
+ReaPack -> Import repositories, paste
+`https://raw.githubusercontent.com/KallumS/Starting-Blocks/main/index.xml`,
+then Browse packages, find Starting Blocks and Install. You still need ReaImGui (step 1 below). That link only works
+once this has been merged into the main branch.
+
+**By hand:**
+
 **1. Install ReaImGui.** The script will not start without it.
 
 In REAPER: Extensions -> ReaPack -> Browse packages, search for `ReaImGui`,
