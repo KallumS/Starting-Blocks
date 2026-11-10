@@ -31,7 +31,7 @@ var S = {
   session: call('newSession', { generator: DEVICE.generator }),
   key: { root: 1, scale: 1 }, follow: true, seed: 1, target: 0,
   song: { tempo: 120, num: 4, den: 4 },
-  settings: [], results: [], chosen: 0, page: 0, scroll: 0,
+  settings: [], results: [], chosen: 0, part: 0, page: 0, scroll: 0,
   selection: null, status: '', warn: false, ready: false, pending: null
 };
 var TARGETS = ['New Clip', 'Arrangement', 'This Clip'];
@@ -46,7 +46,24 @@ function context() {
            selection: { notes: sel.notes, beats: sel.beats, drums: false } };
 }
 
-function refreshSettings() { S.settings = call('settings', { session: S.session, context: context() }); }
+// A result with more than one part (melody, chords, bass, drums) offers a
+// Part setting of the device's own: all of them, or one.
+function partNames() {
+  var most = [];
+  S.results.forEach(function (r) { if (r.parts.length > most.length) most = r.parts; });
+  return most.length > 1 ? ['All Parts'].concat(most.map(function (p, i) { return p.name || ('Part ' + (i + 1)); })) : null;
+}
+// The device's Key and Scale are the engine's key; an engine that also lists
+// its own is not shown it twice.
+var OWN_KEY = { root: 1, scale: 1, key: 1 };
+function refreshSettings() {
+  S.settings = call('settings', { session: S.session, context: context() }).filter(function (s) { return !OWN_KEY[s.id]; });
+  var parts = partNames();
+  if (parts) {
+    if (S.part >= parts.length) S.part = 0;
+    S.settings.push({ id: '$part', label: 'Part', names: parts, index: S.part + 1, hint: '' });
+  }
+}
 
 function generate() {
   if (GEN.input === 'selection' && !S.selection) {
@@ -70,7 +87,7 @@ function generate() {
 
 function save() {
   outlet(1, 'set', JSON.stringify({ v: 1, st: call('snapshot', { session: S.session }), key: S.key,
-                                    follow: S.follow, seed: S.seed, target: S.target }));
+                                    follow: S.follow, seed: S.seed, target: S.target, part: S.part }));
 }
 
 function useKey() { call('useKey', { session: S.session, key: S.key }); }
@@ -116,11 +133,13 @@ function apply(st) {
   S.follow = st.follow !== false;
   S.seed = st.seed || 1;
   S.target = st.target || 0;
+  S.part = st.part || 0;
   useKey();
 }
 
 // ------------------------------------------------------------- actions --
 function setSetting(id, index) {
+  if (id === '$part') { S.part = index - 1; refreshSettings(); save(); mgraphics.redraw(); return; }
   call('set', { session: S.session, setting: id, index: index, context: context() });
   say('');
   generate();
@@ -146,20 +165,26 @@ function newIdeas() {
   save();
   mgraphics.redraw();
 }
+// The chosen result as notes: every part together for hearing, and for
+// inserting the first part here and `more` on tracks of their own.
 function chosenNotes() {
   var r = S.results[S.chosen];
   if (!r) return null;
-  var notes = [];
-  r.parts.forEach(function (p) { p.notes.forEach(function (n) { notes.push(n); }); });
-  notes.sort(function (a, b) { return a.start - b.start || a.pitch - b.pitch; });
-  return { notes: notes, beats: r.beats || 4, title: r.title || GEN.name };
+  var parts = S.part > 0 && r.parts[S.part - 1] ? [r.parts[S.part - 1]] : r.parts;
+  var all = [];
+  parts.forEach(function (p) { p.notes.forEach(function (n) { all.push(n); }); });
+  all.sort(function (a, b) { return a.start - b.start || a.pitch - b.pitch; });
+  var title = r.title || GEN.name;
+  function named(p) { return parts.length > 1 && p.name ? title + ' \u2014 ' + p.name : title; }
+  return { all: all, notes: parts[0] ? parts[0].notes : [], beats: r.beats || 4, title: named(parts[0] || {}),
+           more: parts.slice(1).map(function (p) { return { name: named(p), notes: p.notes }; }) };
 }
 function play() {
   if (player.playing()) { player.stop(); mgraphics.redraw(); return; }
   var c = chosenNotes();
   if (!c) return;
   readSong();
-  player.play(c.notes, S.song.tempo, function () { mgraphics.redraw(); });
+  player.play(c.all, S.song.tempo, function () { mgraphics.redraw(); });
   mgraphics.redraw();
 }
 function insert() {
@@ -169,8 +194,9 @@ function insert() {
   var r;
   try {
     var beats = Math.max(c.beats, Math.ceil(c.beats));
-    r = S.target === 0 ? Live.newClip(c.notes, beats, c.title)
-      : S.target === 1 ? Live.arrangementClip(c.notes, beats, c.title)
+    r = S.target === 0 ? Live.newClip(c.notes, beats, c.title, c.more)
+      : S.target === 1 ? Live.arrangementClip(c.notes, beats, c.title, c.more)
+      : c.more.length ? { ok: false, message: 'This Clip takes one part. Choose a part, then try again.' }
       : Live.replaceInClip(c.notes, beats);
   } catch (e) { r = { ok: false, message: String(e.message || e) }; }
   say(r.message, !r.ok);
@@ -191,7 +217,7 @@ function choose(i) {
   S.chosen = i;
   player.stop();
   var c = chosenNotes();
-  if (c) player.play(c.notes, S.song.tempo, function () { mgraphics.redraw(); });
+  if (c) player.play(c.all, S.song.tempo, function () { mgraphics.redraw(); });
   mgraphics.redraw();
 }
 
@@ -207,7 +233,7 @@ function paint() {
   var g = mgraphics, sz = size(), W = sz[0], Ht = sz[1];
   UI.begin(g);
   UI.rect(0, 0, W, Ht, UI.C.ground);
-  UI.text(S.status || (GEN.name + ' — ' + keyName()), 6, 1, W - 12, 16, S.warn ? UI.C.warnText : UI.C.dim, 10, 0);
+  UI.text(S.status || ((DEVICE.title || GEN.name) + ' — ' + keyName()), 6, 1, W - 12, 16, S.warn ? UI.C.warnText : UI.C.dim, 10, 0);
 
   // The key: the engine writes in it, and follows Live's scale when asked.
   UI.stepper('Key', Live.ROOTS, S.key.root, KEY_X, ROW_Y[0], KEY_W, function (i) { setKey(i, S.key.scale); });

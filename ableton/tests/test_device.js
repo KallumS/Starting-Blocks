@@ -6,6 +6,9 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
 const { load, liveSet } = require('../kit/test/max.js');
+const suite = require('../kit/test/generator_suite.js');
+suite({ bundle: path.join(__dirname, '..', 'StartingBlocks.js'), name: 'Starting Blocks', varies: false });
+
 
 const BUNDLE = path.join(__dirname, '..', 'StartingBlocks.js');
 function device(opts) { const d = load(BUNDLE, opts); d.send('bang'); return d; }

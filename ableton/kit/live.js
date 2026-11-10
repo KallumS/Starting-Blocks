@@ -97,29 +97,83 @@ var Live = (function () {
     try { api('live_set view').set('detail_clip', 'id', Number(clip.id)); } catch (e) { /* the clip is made either way */ }
   }
 
-  // New notes, as a new clip in the first free slot on this device's track,
-  // from the selected scene down. Returns what happened, for the status line.
-  function newClip(notes, beats, name) {
+  function selectedScene() {
+    var scene = api('live_set view selected_scene'), n = api('live_set').getcount('scenes');
+    for (var i = 0; i < n; i++) if (Number(api('live_set scenes ' + i).id) === Number(scene.id)) return i;
+    return 0;
+  }
+  function thisTrack() {
     var track = api('this_device canonical_parent');
-    if (!exists(track) || !+one(track, 'has_midi_input')) return { ok: false, message: 'This device needs to be on a MIDI track.' };
+    if (!exists(track) || !+one(track, 'has_midi_input')) return null;
+    return track;
+  }
+  // Where this device's track is in the set, for putting new tracks beside it.
+  function trackIndex(track) {
+    var n = api('live_set').getcount('tracks');
+    for (var i = 0; i < n; i++) if (Number(api('live_set tracks ' + i).id) === Number(track.id)) return i;
+    return n - 1;
+  }
+  function clipInSlot(slot, notes, beats, name) {
+    slot.call('create_clip', Math.max(1, beats));
+    var clip = api(slot.unquotedpath + ' clip');
+    if (name) clip.set('name', name);
+    clip.call('add_new_notes', liveNotes(notes));
+    return clip;
+  }
+  function freeSlot(track, from) {
     var n = track.getcount('clip_slots');
-    var scene = api('live_set view selected_scene'), sceneIndex = 0;
-    var scenes = api('live_set').getcount('scenes');
-    for (var i = 0; i < scenes; i++) if (Number(api('live_set scenes ' + i).id) === Number(scene.id)) { sceneIndex = i; break; }
     for (var k = 0; k < n; k++) {
-      var at = (sceneIndex + k) % n;
-      var slot = api(track.unquotedpath + ' clip_slots ' + at);
-      if (+one(slot, 'has_clip')) continue;
-      return undoable(function () {
-        slot.call('create_clip', Math.max(1, beats));
-        var clip = api(slot.unquotedpath + ' clip');
+      var at = (from + k) % n, slot = api(track.unquotedpath + ' clip_slots ' + at);
+      if (!+one(slot, 'has_clip')) return { slot: slot, at: at };
+    }
+    return null;
+  }
+  function arrangementClipOn(track, notes, beats, name, at) {
+    var before = track.getcount('arrangement_clips');
+    try { track.call('create_midi_clip', at, Math.max(1, beats)); } catch (e) { /* checked below */ }
+    var count = track.getcount('arrangement_clips');
+    if (!(count > before)) return false;
+    for (var i = 0; i < count; i++) {
+      var clip = api(track.unquotedpath + ' arrangement_clips ' + i);
+      if (Math.abs((+one(clip, 'start_time') || 0) - at) < 1e-6) {
         if (name) clip.set('name', name);
         clip.call('add_new_notes', liveNotes(notes));
-        show(clip);
-        return { ok: true, message: 'Added a clip in scene ' + (at + 1) + '.' };
-      });
+        return true;
+      }
     }
-    return { ok: false, message: 'Every clip slot on this track is full. Add a scene, then try again.' };
+    return false;
+  }
+
+  // New notes, as a new clip in the first free slot on this device's track,
+  // from the selected scene down. `more` are further parts ({name, notes}),
+  // each on a new MIDI track after this one, in the same scene. Returns what
+  // happened, for the status line.
+  function newClip(notes, beats, name, more) {
+    var track = thisTrack();
+    if (!track) return { ok: false, message: 'This device needs to be on a MIDI track.' };
+    var free = freeSlot(track, selectedScene());
+    if (!free) return { ok: false, message: 'Every clip slot on this track is full. Add a scene, then try again.' };
+    return undoable(function () {
+      var clip = clipInSlot(free.slot, notes, beats, name);
+      var made = newTracks(track, more, function (t) {
+        clipInSlot(api(t.unquotedpath + ' clip_slots ' + free.at), this.notes, beats, this.name);
+      });
+      show(clip);
+      return { ok: true, message: 'Added a clip in scene ' + (free.at + 1) + (made ? ', and ' + made + ' on new tracks beside it.' : '.') };
+    });
+  }
+
+  // Each further part on a new MIDI track, in order, after this one.
+  function newTracks(track, more, put) {
+    if (!more || !more.length) return '';
+    var at = trackIndex(track), song = api('live_set');
+    more.forEach(function (part, k) {
+      song.call('create_midi_track', at + 1 + k);
+      var t = api('live_set tracks ' + (at + 1 + k));
+      t.set('name', part.name);
+      put.call(part, t);
+    });
+    return more.length === 1 ? 'one more part' : more.length + ' more parts';
   }
 
   // New notes in place of the notes of the clip being edited, from its loop start.
@@ -139,25 +193,18 @@ var Live = (function () {
   }
 
   // New notes in the Arrangement at the insert marker, on this device's track
-  // (Track.create_midi_clip, Live 12.2 and later).
-  function arrangementClip(notes, beats, name) {
-    var track = api('this_device canonical_parent');
-    if (!exists(track) || !+one(track, 'has_midi_input')) return { ok: false, message: 'This device needs to be on a MIDI track.' };
+  // (Track.create_midi_clip, Live 12.2 and later); further parts as above.
+  function arrangementClip(notes, beats, name, more) {
+    var track = thisTrack();
+    if (!track) return { ok: false, message: 'This device needs to be on a MIDI track.' };
     var at = +one(api('live_set'), 'current_song_time') || 0;
-    var before = track.getcount('arrangement_clips');
     return undoable(function () {
-      try { track.call('create_midi_clip', at, Math.max(1, beats)); } catch (e) { /* checked below */ }
-      var count = track.getcount('arrangement_clips');
-      if (!(count > before)) return { ok: false, message: 'This version of Live can’t add Arrangement clips from a device. Choose New Clip instead.' };
-      for (var i = 0; i < count; i++) {
-        var clip = api(track.unquotedpath + ' arrangement_clips ' + i);
-        if (Math.abs((+one(clip, 'start_time') || 0) - at) < 1e-6) {
-          if (name) clip.set('name', name);
-          clip.call('add_new_notes', liveNotes(notes));
-          return { ok: true, message: 'Added a clip to the Arrangement at beat ' + (Math.round(at * 100) / 100 + 1) + '.' };
-        }
+      if (!arrangementClipOn(track, notes, beats, name, at)) {
+        return { ok: false, message: 'This version of Live can\u2019t add Arrangement clips from a device. Choose New Clip instead.' };
       }
-      return { ok: false, message: 'The new clip couldn’t be found. Undo, then try again.' };
+      var made = newTracks(track, more, function (t) { arrangementClipOn(t, this.notes, beats, this.name, at); });
+      return { ok: true, message: 'Added a clip to the Arrangement at beat ' + (Math.round(at * 100) / 100 + 1) +
+               (made ? ', and ' + made + ' on new tracks beside it.' : '.') };
     });
   }
 

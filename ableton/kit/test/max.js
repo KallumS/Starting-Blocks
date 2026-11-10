@@ -31,25 +31,34 @@ function liveSet(opts) {
     };
     return c;
   }
-  const slots = [];
-  for (let i = 0; i < (opts.scenes || 4); i++) {
-    const s = obj({ has_clip: 0 }, {}, {});
-    s.fns.create_clip = (len) => { s.kids.clip = clip(len); s.props.has_clip = 1; };
-    slots.push(s);
+  const nScenes = opts.scenes || 4;
+  const tracks = [];
+  function makeTrack(name, audio) {
+    const slots = [];
+    for (let i = 0; i < nScenes; i++) {
+      const s = obj({ has_clip: 0 }, {}, {});
+      s.fns.create_clip = (len) => { s.kids.clip = clip(len); s.props.has_clip = 1; };
+      slots.push(s);
+    }
+    const arrangement = [];
+    const t = obj({ has_midi_input: audio ? 0 : 1, name: name }, {}, { clip_slots: slots, arrangement_clips: arrangement });
+    if (opts.arrangement !== false) t.fns.create_midi_clip = (at, len) => { arrangement.push(clip(len, [], { start_time: at })); };
+    return t;
   }
-  const arrangement = [];
-  const track = obj({ has_midi_input: opts.audioTrack ? 0 : 1, name: '1-MIDI' }, {}, { clip_slots: slots, arrangement_clips: arrangement });
-  if (opts.arrangement !== false) {
-    track.fns.create_midi_clip = (at, len) => { arrangement.push(clip(len, [], { start_time: at })); };
-  }
+  const track = makeTrack('1-MIDI', opts.audioTrack);
+  tracks.push(track);
+  const slots = track.kids.clip_slots, arrangement = track.kids.arrangement_clips;
   const scenes = slots.map(() => obj({}));
+  for (let i = 1; i < (opts.tracks || 1); i++) tracks.push(makeTrack((i + 1) + '-MIDI'));
   const view = obj({}, {}, {});
   const song = obj(Object.assign({ tempo: 120, signature_numerator: 4, signature_denominator: 4, is_playing: 0,
     current_song_time: 0, scale_mode: 1, scale_name: 'Major', root_note: 0 }, opts.song || {}),
-    { begin_undo_step: () => {}, end_undo_step: () => {} }, { scenes: scenes, tracks: [track], view: view });
+    { begin_undo_step: () => { set.undo++; }, end_undo_step: () => {},
+      create_midi_track: (i) => { tracks.splice(i < 0 ? tracks.length : i, 0, makeTrack('MIDI')); } },
+    { scenes: scenes, tracks: tracks, view: view });
   view.kids.selected_scene = scenes[0];
   view.kids.detail_clip = null;
-  const set = { song, track, slots, scenes, view, arrangement, byId, clip,
+  const set = { song, track, tracks, slots, scenes, view, arrangement, byId, clip, undo: 0,
     open(c) { view.kids.detail_clip = c; } };
   view.fns = {};
   const origSet = (o, prop, args) => {

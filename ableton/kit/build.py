@@ -40,6 +40,7 @@ def bundle(desc, base):
             data = read(os.path.join(base, source))
         files[virtual] = data.decode("latin-1")
     device = dict(desc.get("device", {}))
+    device.setdefault("title", desc["name"])
     out.append("var DEVICE = %s;" % json.dumps(device, sort_keys=True))
     out.append("DEVICE.files = %s;" % json.dumps(files, ensure_ascii=True, sort_keys=True))
     for script in desc["scripts"]:
