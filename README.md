@@ -24,6 +24,8 @@ notes. F# major spells its seventh E#, here as there.
 **In Ableton Live:** `ableton/` has Starting Blocks as a Max for Live MIDI
 effect, on the same engine. See [`ableton/README.md`](ableton/README.md).
 
+![Starting Blocks in Ableton Live](ableton/window.png)
+
 ## Installing
 
 **With ReaPack** (easiest, and it keeps it up to date): Extensions ->

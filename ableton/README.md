@@ -18,6 +18,8 @@ the add-on), because the device runs on Max 9's JavaScript engine (`[v8ui]`).
 
 ## Using it
 
+![Starting Blocks in Live, drawn by the device's own code on a stand-in for Max](window.png)
+
 | | |
 | --- | --- |
 | **Key**, **Scale** | The key the blocks are written in. **Follow Live** keeps it on Live's scale (the Scale button in the clip view) when that scale is one ScaleView knows. |
@@ -38,7 +40,7 @@ Noterator adapter (`ableton/adapters/`) and the shared window
 
 `node --test ableton/tests/test_device.js` runs the device on a pretend Max
 and a pretend Live set: every setting, hearing a block, each way of inserting,
-following Live's scale, and saving.
+following Live's scale, and saving. `node ableton/window.js` redraws the picture above from the device's own drawing code (it needs Playwright's Chromium).
 
 ## Limits
 
