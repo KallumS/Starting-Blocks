@@ -77,7 +77,17 @@ var Live = (function () {
     }
     notes.forEach(function (n) { n.start -= first; });
     notes.sort(function (a, b) { return a.start - b.start || a.pitch - b.pitch; });
-    return { notes: notes, beats: beats, name: String(one(c, 'name') || ''), selected: selected };
+    return { notes: notes, beats: beats, name: String(one(c, 'name') || ''), selected: selected, drums: drumTrack() };
+  }
+
+  // A track whose instrument is a Drum Rack plays drums: its note numbers name
+  // drums, not pitches, and the engines treat them that way.
+  function drumTrack() {
+    try {
+      var track = api('this_device canonical_parent'), n = track.getcount('devices');
+      for (var i = 0; i < n; i++) if (+one(api(track.unquotedpath + ' devices ' + i), 'can_have_drum_pads')) return true;
+    } catch (e) { /* not known: not drums */ }
+    return false;
   }
 
   function liveNotes(notes) {
@@ -160,6 +170,20 @@ var Live = (function () {
       });
       show(clip);
       return { ok: true, message: 'Added a clip in scene ' + (free.at + 1) + (made ? ', and ' + made + ' on new tracks beside it.' : '.') };
+    });
+  }
+
+  // New notes on a new MIDI track beside this one, in the selected scene:
+  // a suggestion goes with the music it was made for, not over it.
+  function newTrackClip(notes, beats, name, more) {
+    var track = thisTrack();
+    if (!track) return { ok: false, message: 'This device needs to be on a MIDI track.' };
+    var scene = selectedScene();
+    return undoable(function () {
+      var parts = [{ name: name, notes: notes }].concat(more || []);
+      newTracks(track, parts, function (t) { show(clipInSlot(api(t.unquotedpath + ' clip_slots ' + scene), this.notes, beats, this.name)); });
+      return { ok: true, message: parts.length === 1 ? 'Added a track beside this one, with the clip in scene ' + (scene + 1) + '.'
+                                                     : 'Added ' + parts.length + ' tracks beside this one, with the clips in scene ' + (scene + 1) + '.' };
     });
   }
 
@@ -255,6 +279,6 @@ var Live = (function () {
     this.onEnd = null;
   };
 
-  return { song: song, clipNotes: clipNotes, newClip: newClip, replaceInClip: replaceInClip,
-           arrangementClip: arrangementClip, Player: Player, ROOTS: ROOTS, SCALE_NAMES: SCALE_NAMES };
+  return { song: song, clipNotes: clipNotes, newClip: newClip, newTrackClip: newTrackClip, replaceInClip: replaceInClip,
+           arrangementClip: arrangementClip, drumTrack: drumTrack, Player: Player, ROOTS: ROOTS, SCALE_NAMES: SCALE_NAMES };
 })();

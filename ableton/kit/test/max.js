@@ -46,6 +46,7 @@ function liveSet(opts) {
     return t;
   }
   const track = makeTrack('1-MIDI', opts.audioTrack);
+  track.kids.devices = opts.drumRack ? [obj({ can_have_drum_pads: 1, name: 'Drum Rack' })] : [];
   tracks.push(track);
   const slots = track.kids.clip_slots, arrangement = track.kids.arrangement_clips;
   const scenes = slots.map(() => obj({}));

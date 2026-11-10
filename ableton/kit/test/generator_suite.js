@@ -31,6 +31,7 @@ module.exports = function (o) {
     const d = load(o.bundle, { set });
     d.send('bang');
     if (o.selection && !opts.noClip) d.click('Use Clip');
+    if (o.beside && !opts.keepTarget) d.click('New Track');   // the shared tests start from New Clip
     return d;
   }
   function results(d) { return d.ctx.S.results; }
@@ -40,8 +41,10 @@ module.exports = function (o) {
     const t = d.texts();
     assert.ok(results(d).length > 0, d.ctx.S.status);
     assert.ok(!d.ctx.S.warn, d.ctx.S.status);
-    for (const w of ['New Ideas', 'Play', 'Insert', 'New Clip', 'Follow Live', 'Key', 'Scale']) assert.ok(t.includes(w), w + ' in ' + t.join(' | '));
-    if (!o.selection) assert.ok(t.some((s) => s.indexOf('C Major') >= 0), t.join(' | '));
+    const words = ['New Ideas', 'Play', 'Insert', 'New Clip'].concat(o.keyless ? [] : ['Follow Live', 'Key', 'Scale']);
+    if (o.keyless) for (const w of ['Follow Live', 'Key', 'Scale']) assert.ok(!t.includes(w), 'no ' + w + ': the key is heard in the music');
+    for (const w of words) assert.ok(t.includes(w), w + ' in ' + t.join(' | '));
+    if (!o.selection && !o.keyless) assert.ok(t.some((s) => s.indexOf('C Major') >= 0), t.join(' | '));
   });
 
   if (o.selection) {
@@ -125,7 +128,7 @@ module.exports = function (o) {
     assert.strictEqual(c.notes.length, (parts ? r.parts[0] : r.parts[0]).notes.length);
   });
 
-  test(o.name + ': it follows Live’s scale', () => {
+  if (!o.keyless) test(o.name + ': it follows Live’s scale', () => {
     const d = device({ live: { song: { scale_name: 'Dorian', root_note: 2 } } });
     assert.deepStrictEqual(plain(d.ctx.S.key), { root: 4, scale: 5 });
     const e = device({ live: { song: { scale_name: 'Minor', root_note: 8 } } });
@@ -149,13 +152,30 @@ module.exports = function (o) {
 
   test(o.name + ': state restored before Live is ready waits for it', () => {
     const d = device();
-    d.click('Follow Live');
+    d.click('New Clip');
     const saved = d.saved();
     const e = load(o.bundle);
     e.send('restore', JSON.stringify(saved));
     e.send('bang');
-    assert.strictEqual(e.ctx.S.follow, false);
+    assert.strictEqual(e.ctx.S.target, d.ctx.S.target);
   });
+
+  if (o.beside) {
+    test(o.name + ': a suggestion goes on a new track beside this one, and is heard with the music', () => {
+      const d = device({ keepTarget: true });
+      assert.ok(d.texts().includes('New Track'));
+      const r = results(d)[0];
+      d.click('Insert');
+      assert.ok(!d.ctx.S.warn, d.ctx.S.status);
+      assert.strictEqual(d.set.tracks.length, 1 + r.parts.length);
+      assert.strictEqual(d.set.slots[0].props.has_clip, 0, 'nothing written over the music');
+      assert.strictEqual(d.set.tracks[1].kids.clip_slots[0].kids.clip.notes.length, r.parts[0].notes.length);
+      d.click('Play');
+      d.run(60000);
+      const ons = d.midi().filter((b, i) => i % 3 === 0 && (b & 0xF0) === 0x90).length;
+      assert.ok(ons >= r.parts[0].notes.length + TUNE.length, 'the original is heard too');
+    });
+  }
 
   return { device, TUNE, balanced };
 };
