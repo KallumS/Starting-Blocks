@@ -1,0 +1,32 @@
+{
+  "name": "Starting Blocks",
+  "slug": "StartingBlocksTool",
+  "kind": "generator",
+  "template": "midi_tool",
+  "description": "Starting Blocks in Live's Generate panel: a chord, an arpeggio, a run, a step or a leap on a degree of the clip's scale, filling the time selection.",
+  "device": {
+    "generator": "starting-blocks",
+    "tool": "generate",
+    "result": "Degree",
+    "short": true
+  },
+  "files": {
+    "starting-blocks/sb_engine.lua": "../../reascripts/sb_engine.lua",
+    "adapters/common.lua": "../adapters/common.lua",
+    "adapters/starting_blocks.lua": "../adapters/starting_blocks.lua",
+    "adapters/index.lua": {
+      "text": "return { \"adapters/starting_blocks.lua\" }\n"
+    }
+  },
+  "scripts": [
+    "../kit/palette.js",
+    "../kit/runtime/polyfill.js",
+    "../kit/runtime/lua_parse.js",
+    "../kit/runtime/lua_runtime.js",
+    "../kit/runtime/lua_compile.js",
+    "../kit/runtime/host.js",
+    "../kit/ui.js",
+    "../kit/live.js",
+    "../kit/miditool.js"
+  ]
+}

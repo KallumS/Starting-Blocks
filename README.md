@@ -22,9 +22,10 @@ unchanged, so the two apps agree on what a scale is and on what to call its
 notes. F# major spells its seventh E#, here as there.
 
 **In Ableton Live:** `ableton/` has Starting Blocks as a Max for Live MIDI
-effect, on the same engine. See [`ableton/README.md`](ableton/README.md).
+effect, on the same engine. See [`ableton/README.md`](ableton/README.md). It is also a **MIDI Tool** in the clip view's **Generate** panel (`ableton/tool/`).
 
 ![Starting Blocks in Ableton Live](ableton/window.png)
+![Starting Blocks in Live's Generate panel](ableton/tool/window.png)
 
 ## Installing
 

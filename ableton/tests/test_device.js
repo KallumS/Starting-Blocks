@@ -7,6 +7,7 @@ const assert = require('node:assert');
 const path = require('node:path');
 const { load, liveSet } = require('../kit/test/max.js');
 const suite = require('../kit/test/generator_suite.js');
+require('../kit/test/palette_suite.js')();
 suite({ bundle: path.join(__dirname, '..', 'StartingBlocks.js'), name: 'Starting Blocks', varies: false });
 
 
